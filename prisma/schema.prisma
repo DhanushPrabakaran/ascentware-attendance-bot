@@ -1,0 +1,64 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Employee {
+  id            String       @id @default(uuid())
+  name          String
+  email         String       @unique
+  teamsUserId   String       @unique
+  attendances   Attendance[]
+}
+
+model Attendance {
+  id             String            @id @default(uuid())
+  employeeId     String
+  employee       Employee          @relation(fields: [employeeId], references: [id])
+  date           DateTime          @default(now()) @db.Date
+  checkIn        DateTime
+  checkOut       DateTime?
+  workingMinutes Int               @default(0)
+  breakMinutes   Int               @default(0)
+  permissionMinutes Int            @default(0)
+  status         String            @default("checked_in") // checked_in, on_break, checked_out
+  
+  breaks         AttendanceBreak[]
+  dailyTasks     DailyTask[]
+  dailySummary   DailySummary?
+}
+
+model AttendanceBreak {
+  id           String     @id @default(uuid())
+  attendanceId String
+  attendance   Attendance @relation(fields: [attendanceId], references: [id])
+  breakStart   DateTime
+  breakEnd     DateTime?
+  duration     Int        @default(0) // in minutes
+}
+
+model DailyTask {
+  id               String          @id @default(uuid())
+  attendanceId     String
+  attendance       Attendance      @relation(fields: [attendanceId], references: [id])
+  date             DateTime        @default(now()) @db.Date
+  taskName         String          // Can be text or a link
+  priority         String          @default("normal")
+  estimatedMinutes Int             @default(0)
+  timeTakenMinutes Int             @default(0)
+  status           String          @default("not_started") // not_started, in_progress, completed
+  remarks          String?
+}
+
+model DailySummary {
+  id            String     @id @default(uuid())
+  attendanceId  String     @unique
+  attendance    Attendance @relation(fields: [attendanceId], references: [id])
+  overallStatus String
+  blockerType   String?
+  remarks       String?
+  submittedAt   DateTime   @default(now())
+}

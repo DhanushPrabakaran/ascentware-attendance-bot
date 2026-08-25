@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: ascentware-bot
+    env: node
+    plan: free
+    buildCommand: npm install && npx prisma generate && npm run build
+    startCommand: npm run start:prod
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: MicrosoftAppId
+        sync: false
+      - key: MicrosoftAppPassword
+        sync: false
+      - key: MicrosoftAppType
+        value: MultiTenant
+      - key: MicrosoftAppTenantId
+        value: ""
