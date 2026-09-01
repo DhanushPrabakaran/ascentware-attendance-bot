@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { RequestHandler } from 'express';
-import { AgentApplication, MemoryStorage, TurnState } from '@microsoft/agents-hosting';
+import { AgentApplication, MemoryStorage, TurnState, CloudAdapter } from '@microsoft/agents-hosting';
 import { createAgentRequestHandler } from '@microsoft/agents-hosting-express';
 import { TeamsAttendanceBot } from './TeamsAttendanceBot';
 
@@ -12,11 +12,19 @@ export class BotService {
 
   constructor() {
     const storage = new MemoryStorage();
-    this.app = new AgentApplication<TurnState>({ storage });
     
+    // The new SDK strict parser looks for 'CLIENTID' without underscore, so we manually
+    // pass the correct credentials into the CloudAdapter to ensure it works on Render.
+    const adapter = new CloudAdapter({
+      clientId: process.env.CLIENT_ID || process.env.CLIENTID || process.env.MicrosoftAppId,
+      clientSecret: process.env.CLIENT_SECRET || process.env.CLIENTSECRET || process.env.MicrosoftAppPassword,
+      tenantId: process.env.MicrosoftAppTenantId || process.env.TENANT_ID || ''
+    });
+
+    this.app = new AgentApplication<TurnState>({ storage, adapter });
+
     this.myBot = new TeamsAttendanceBot();
     this.myBot.registerHandlers(this.app);
 
     this.handler = createAgentRequestHandler(this.app);
   }
-}
