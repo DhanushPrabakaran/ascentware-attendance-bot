@@ -54,9 +54,15 @@ export class TeamsAttendanceBot {
           );
         }
       } else {
-        await context.sendActivity(
-          MessageFactory.text("Welcome to Ascentware Bot! I don't recognize your Teams account.\nPlease type your official company email address to link your account.")
-        );
+        if (text && text.trim().length > 0) {
+          await context.sendActivity(
+            MessageFactory.text(`I saw your message: "${text}". However, I couldn't find a valid email address in it. Please type exactly your official company email address (e.g., name@company.com).`)
+          );
+        } else {
+          await context.sendActivity(
+            MessageFactory.text("Welcome to Ascentware Bot! I don't recognize your Teams account.\nPlease type your official company email address to link your account.")
+          );
+        }
       }
       return false;
     }
