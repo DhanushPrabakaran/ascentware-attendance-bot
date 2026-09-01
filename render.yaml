@@ -8,15 +8,7 @@ services:
     envVars:
       - key: DATABASE_URL
         sync: false
-      - key: MicrosoftAppId
-        sync: false
-      - key: MicrosoftAppPassword
-        sync: false
       - key: CLIENT_ID
         sync: false
       - key: CLIENT_SECRET
         sync: false
-      - key: MicrosoftAppType
-        value: MultiTenant
-      - key: MicrosoftAppTenantId
-        value: ""
