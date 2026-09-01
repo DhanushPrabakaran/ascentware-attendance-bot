@@ -115,8 +115,7 @@ export class TeamsAttendanceBot {
                 
                 if (replyToId) {
                     try { await context.deleteActivity(replyToId); } catch (e) {}
-                    await context.sendActivity({ 
-                        attachments: [CardBuilder.getReadOnlyReceiptCard("Checked In", `Time: ${new Date(attendance.checkIn).toLocaleTimeString()}`)] 
+                    await context.sendActivity({ type: 'message', attachments: [CardBuilder.getReadOnlyReceiptCard("Checked In", `Time: ${new Date(attendance.checkIn).toLocaleTimeString()}`)] 
                     });
                     TeamsAttendanceBot.markConsumed(replyToId);
                 }
@@ -172,8 +171,7 @@ export class TeamsAttendanceBot {
 
                 if (replyToId) {
                     try { await context.deleteActivity(replyToId); } catch (e) {}
-                    await context.sendActivity({ 
-                        attachments: [CardBuilder.getReadOnlyReceiptCard("Day Planned", `Saved ${tasks.length} tasks and ${permissionMinutes} mins of leave.`)] 
+                    await context.sendActivity({ type: 'message', attachments: [CardBuilder.getReadOnlyReceiptCard("Day Planned", `Saved ${tasks.length} tasks and ${permissionMinutes} mins of leave.`)] 
                     });
                     TeamsAttendanceBot.markConsumed(replyToId);
                 }
@@ -189,8 +187,7 @@ export class TeamsAttendanceBot {
                 
                 if (replyToId) {
                     try { await context.deleteActivity(replyToId); } catch (e) {}
-                    await context.sendActivity({ 
-                        attachments: [CardBuilder.getReadOnlyReceiptCard("Break Started", "Have a good rest!")] 
+                    await context.sendActivity({ type: 'message', attachments: [CardBuilder.getReadOnlyReceiptCard("Break Started", "Have a good rest!")] 
                     });
                     TeamsAttendanceBot.markConsumed(replyToId);
                 }
@@ -205,8 +202,7 @@ export class TeamsAttendanceBot {
 
                 if (replyToId) {
                     try { await context.deleteActivity(replyToId); } catch (e) {}
-                    await context.sendActivity({ 
-                        attachments: [CardBuilder.getReadOnlyReceiptCard("Break Ended", "Back to work!")] 
+                    await context.sendActivity({ type: 'message', attachments: [CardBuilder.getReadOnlyReceiptCard("Break Ended", "Back to work!")] 
                     });
                     TeamsAttendanceBot.markConsumed(replyToId);
                 }
@@ -222,8 +218,7 @@ export class TeamsAttendanceBot {
 
                 if (replyToId) {
                     try { await context.deleteActivity(replyToId); } catch (e) {}
-                    await context.sendActivity({ 
-                        attachments: [CardBuilder.getReadOnlyReceiptCard("Reviewing Day", "Initiating checkout process...")] 
+                    await context.sendActivity({ type: 'message', attachments: [CardBuilder.getReadOnlyReceiptCard("Reviewing Day", "Initiating checkout process...")] 
                     });
                     TeamsAttendanceBot.markConsumed(replyToId);
                 }
@@ -255,8 +250,7 @@ export class TeamsAttendanceBot {
 
                 if (replyToId) {
                     try { await context.deleteActivity(replyToId); } catch (e) {}
-                    await context.sendActivity({ 
-                        attachments: [CardBuilder.getReadOnlyReceiptCard("Checked Out", `Working Time: ${result.workingMinutes} mins, Break Time: ${result.breakMinutes} mins`)] 
+                    await context.sendActivity({ type: 'message', attachments: [CardBuilder.getReadOnlyReceiptCard("Checked Out", `Working Time: ${result.workingMinutes} mins, Break Time: ${result.breakMinutes} mins`)] 
                     });
                     TeamsAttendanceBot.markConsumed(replyToId);
                 }
