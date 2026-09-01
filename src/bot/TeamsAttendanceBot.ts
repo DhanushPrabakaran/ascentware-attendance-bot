@@ -2,6 +2,7 @@ import { TurnContext, MessageFactory } from 'botbuilder';
 import { AgentApplication, TurnState } from '@microsoft/agents-hosting';
 import { CardBuilder } from './cards/CardBuilder';
 import { WorkflowEngine } from './workflows/workflow.engine';
+import { BackendService } from './services/BackendService';
 
 export class TeamsAttendanceBot {
   public static activityMap: Map<string, string> = new Map();
