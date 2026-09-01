@@ -1,4 +1,4 @@
-import { TurnContext, MessageFactory } from 'botbuilder';
+import { TurnContext, MessageFactory, TeamsInfo } from 'botbuilder';
 import { AgentApplication, TurnState } from '@microsoft/agents-hosting';
 import { CardBuilder } from './cards/CardBuilder';
 import { WorkflowEngine } from './workflows/workflow.engine';
@@ -32,12 +32,31 @@ export class TeamsAttendanceBot {
 
   private async ensureAuthenticated(context: TurnContext): Promise<boolean> {
     const teamsUserId = context.activity.from?.id || '';
-    const text = context.activity.text ? context.activity.text.trim().toLowerCase() : '';
     const employee = await BackendService.getEmployeeByTeamsUserId(teamsUserId);
 
     if (!employee) {
-      if (text && text.includes('@')) {
-        const email = text.trim();
+      // 1. Attempt to fetch email automatically from Teams
+      try {
+        const member = await TeamsInfo.getMember(context, teamsUserId);
+        const email = member.email || member.userPrincipalName;
+        const name = member.name || context.activity.from?.name || email?.split('@')[0];
+
+        if (email) {
+          await BackendService.linkTeamsUserId(email, teamsUserId, name);
+          return true; // Invisible linking succeeded!
+        }
+      } catch (e) {
+        console.error('[TeamsBot] Failed to auto-fetch member info from Teams', e);
+      }
+
+      // 2. Fallback to manual linking if auto-fetch fails
+      const text = context.activity.text ? context.activity.text.trim().toLowerCase() : '';
+      
+      const emailRegex = /([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9._-]+)/i;
+      const match = emailRegex.exec(text);
+
+      if (match && match[0]) {
+        const email = match[0];
         const name = context.activity.from?.name || email.split('@')[0];
         try {
           await BackendService.linkTeamsUserId(email, teamsUserId, name);
