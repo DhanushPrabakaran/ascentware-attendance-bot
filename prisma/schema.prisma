@@ -7,28 +7,60 @@ datasource db {
 }
 
 model Employee {
-  id            String       @id @default(uuid())
+  id            String   @id @default(uuid())
   name          String
-  email         String       @unique
-  teamsUserId   String       @unique
-  attendances   Attendance[]
+  email         String   @unique
+  teamsUserId   String?  @unique
+  role          String   @default("EMPLOYEE") // ADMIN, EMPLOYEE
+  managerEmails String[] // Array of emails this person reports to
+
+  shiftId String?
+  shift   Shift?  @relation(fields: [shiftId], references: [id])
+
+  attendances Attendance[]
+  leaves      Leave[]
+}
+
+model Shift {
+  id        String     @id @default(uuid())
+  name      String
+  startTime String // e.g. "09:00"
+  endTime   String // e.g. "18:00"
+  employees Employee[]
+}
+
+model Leave {
+  id         String   @id @default(uuid())
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id])
+  date       DateTime @default(now())
+  reason     String
+  status     String   @default("PENDING")
+}
+
+model Settings {
+  id            String  @id @default("default")
+  commonGroupId String?
+  adminEmail    String? @default("dhanushprabakaran@ascentwarecorp.com")
+  adminUsername String  @default("admin")
+  adminPassword String  @default("admin")
 }
 
 model Attendance {
-  id             String            @id @default(uuid())
-  employeeId     String
-  employee       Employee          @relation(fields: [employeeId], references: [id])
-  date           DateTime          @default(now()) @db.Date
-  checkIn        DateTime
-  checkOut       DateTime?
-  workingMinutes Int               @default(0)
-  breakMinutes   Int               @default(0)
-  permissionMinutes Int            @default(0)
-  status         String            @default("checked_in") // checked_in, on_break, checked_out
-  
-  breaks         AttendanceBreak[]
-  dailyTasks     DailyTask[]
-  dailySummary   DailySummary?
+  id                String    @id @default(uuid())
+  employeeId        String
+  employee          Employee  @relation(fields: [employeeId], references: [id])
+  date              DateTime  @default(now()) @db.Date
+  checkIn           DateTime
+  checkOut          DateTime?
+  workingMinutes    Int       @default(0)
+  breakMinutes      Int       @default(0)
+  permissionMinutes Int       @default(0)
+  status            String    @default("checked_in")
+
+  breaks       AttendanceBreak[]
+  dailyTasks   DailyTask[]
+  dailySummary DailySummary?
 }
 
 model AttendanceBreak {
@@ -41,15 +73,15 @@ model AttendanceBreak {
 }
 
 model DailyTask {
-  id               String          @id @default(uuid())
+  id               String     @id @default(uuid())
   attendanceId     String
-  attendance       Attendance      @relation(fields: [attendanceId], references: [id])
-  date             DateTime        @default(now()) @db.Date
-  taskName         String          // Can be text or a link
-  priority         String          @default("normal")
-  estimatedMinutes Int             @default(0)
-  timeTakenMinutes Int             @default(0)
-  status           String          @default("not_started") // not_started, in_progress, completed
+  attendance       Attendance @relation(fields: [attendanceId], references: [id])
+  date             DateTime   @default(now()) @db.Date
+  taskName         String // Can be text or a link
+  priority         String     @default("normal")
+  estimatedMinutes Int        @default(0)
+  timeTakenMinutes Int        @default(0)
+  status           String     @default("not_started") // not_started, in_progress, completed
   remarks          String?
 }
 

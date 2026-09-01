@@ -6,14 +6,16 @@ export class AttendanceService {
   constructor(private prisma: PrismaService) {}
 
   async checkIn(teamsUserId: string) {
-    let employee = await this.prisma.employee.findUnique({ where: { teamsUserId } });
+    let employee = await this.prisma.employee.findUnique({
+      where: { teamsUserId },
+    });
     if (!employee) {
       employee = await this.prisma.employee.create({
         data: {
           name: 'Teams User',
           email: `${teamsUserId}@company.com`,
-          teamsUserId
-        }
+          teamsUserId,
+        },
       });
     }
 
@@ -27,13 +29,17 @@ export class AttendanceService {
   }
 
   async checkOut(attendanceId: string) {
-    const attendance = await this.prisma.attendance.findUnique({ where: { id: attendanceId }, include: { breaks: true } });
+    const attendance = await this.prisma.attendance.findUnique({
+      where: { id: attendanceId },
+      include: { breaks: true },
+    });
     if (!attendance) throw new BadRequestException('Attendance not found');
-    if (attendance.status === 'checked_out') throw new BadRequestException('Already checked out');
+    if (attendance.status === 'checked_out')
+      throw new BadRequestException('Already checked out');
 
     const checkOutTime = new Date();
     let totalBreakMinutes = 0;
-    attendance.breaks.forEach(b => {
+    attendance.breaks.forEach((b) => {
       totalBreakMinutes += b.duration;
     });
 
@@ -47,56 +53,62 @@ export class AttendanceService {
         checkOut: checkOutTime,
         status: 'checked_out',
         workingMinutes,
-        breakMinutes: totalBreakMinutes
-      }
+        breakMinutes: totalBreakMinutes,
+      },
     });
   }
 
   async startBreak(attendanceId: string) {
-    const attendance = await this.prisma.attendance.findUnique({ where: { id: attendanceId } });
+    const attendance = await this.prisma.attendance.findUnique({
+      where: { id: attendanceId },
+    });
     if (!attendance) throw new BadRequestException('Attendance not found');
-    if (attendance.status !== 'checked_in') throw new BadRequestException('Cannot start break from current status');
+    if (attendance.status !== 'checked_in')
+      throw new BadRequestException('Cannot start break from current status');
 
     await this.prisma.attendance.update({
       where: { id: attendanceId },
-      data: { status: 'on_break' }
+      data: { status: 'on_break' },
     });
 
     return this.prisma.attendanceBreak.create({
       data: {
         attendanceId,
         breakStart: new Date(),
-      }
+      },
     });
   }
 
   async endBreak(attendanceId: string) {
     const breakRecord = await this.prisma.attendanceBreak.findFirst({
-      where: { 
+      where: {
         attendanceId,
-        breakEnd: null 
+        breakEnd: null,
       },
-      orderBy: { breakStart: 'desc' }
+      orderBy: { breakStart: 'desc' },
     });
-    
+
     if (!breakRecord) throw new BadRequestException('Break record not found');
-    if (breakRecord.breakEnd) throw new BadRequestException('Break already ended');
+    if (breakRecord.breakEnd)
+      throw new BadRequestException('Break already ended');
 
     const breakEnd = new Date();
     const breakStart = new Date(breakRecord.breakStart);
-    const duration = Math.floor((breakEnd.getTime() - breakStart.getTime()) / 60000);
+    const duration = Math.floor(
+      (breakEnd.getTime() - breakStart.getTime()) / 60000,
+    );
 
     const updatedBreak = await this.prisma.attendanceBreak.update({
       where: { id: breakRecord.id },
       data: {
         breakEnd,
-        duration
-      }
+        duration,
+      },
     });
 
     await this.prisma.attendance.update({
       where: { id: breakRecord.attendanceId },
-      data: { status: 'checked_in' }
+      data: { status: 'checked_in' },
     });
 
     return updatedBreak;

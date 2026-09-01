@@ -1,0 +1,250 @@
+import { useEffect, useState } from 'react';
+import { Edit2, Trash2, Plus } from 'lucide-react';
+
+interface Employee {
+  id: string;
+  name: string;
+  email: string;
+  teamsUserId?: string;
+  shiftId?: string;
+  managerEmails: string[];
+}
+
+interface Shift {
+  id: string;
+  name: string;
+}
+
+export default function Employees() {
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [shifts, setShifts] = useState<Shift[]>([]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  
+  const [formData, setFormData] = useState<Partial<Employee>>({
+    name: '',
+    email: '',
+    managerEmails: []
+  });
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchEmployees = async () => {
+    try {
+      const res = await fetch('/api/v1/admin/employees');
+      if (!res.ok) throw new Error('Failed to load employees');
+      setEmployees(await res.json());
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
+
+  const fetchShifts = async () => {
+    try {
+      const res = await fetch('/api/v1/admin/shifts');
+      if (!res.ok) throw new Error('Failed to load shifts');
+      setShifts(await res.json());
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
+
+  useEffect(() => {
+    fetchEmployees();
+    fetchShifts();
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    setError(null);
+    try {
+      if (isEditing && formData.id) {
+        const res = await fetch(`/api/v1/admin/employees/${formData.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formData)
+        });
+        if (!res.ok) throw new Error('Failed to update employee');
+      } else {
+        const res = await fetch('/api/v1/admin/employees', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formData)
+        });
+        if (!res.ok) throw new Error('Failed to create employee');
+      }
+      setIsModalOpen(false);
+      await fetchEmployees();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this employee?')) return;
+    try {
+      const res = await fetch(`/api/v1/admin/employees/${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete employee');
+      await fetchEmployees();
+    } catch (err: any) {
+      setError(err.message);
+      alert(err.message);
+    }
+  };
+
+  const openAddModal = () => {
+    setFormData({name: '', email: '', managerEmails: []});
+    setIsEditing(false);
+    setError(null);
+    setIsModalOpen(true);
+  };
+
+  const openEditModal = (emp: Employee) => {
+    setFormData(emp);
+    setIsEditing(true);
+    setError(null);
+    setIsModalOpen(true);
+  };
+
+  const handleManagerToggle = (email: string) => {
+    const current = formData.managerEmails || [];
+    if (current.includes(email)) {
+      setFormData({ ...formData, managerEmails: current.filter(e => e !== email) });
+    } else {
+      setFormData({ ...formData, managerEmails: [...current, email] });
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">Employees</h2>
+          <p className="mt-1 text-sm text-gray-500">Manage your workforce and assign managers.</p>
+        </div>
+        <button
+          onClick={openAddModal}
+          className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-primary hover:bg-primaryHover focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors"
+        >
+          <Plus size={16} className="mr-2" />
+          Add Employee
+        </button>
+      </div>
+
+      {error && !isModalOpen && (
+        <div className="bg-red-50 text-red-700 p-4 rounded-lg border border-red-200">
+          {error}
+        </div>
+      )}
+
+      <div className="bg-white shadow-sm rounded-xl border border-gray-200 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Managers</th>
+                <th scope="col" className="relative px-6 py-3"><span className="sr-only">Actions</span></th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {employees.map((emp) => (
+                <tr key={emp.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium text-gray-900">{emp.name}</div>
+                    <div className="text-sm text-gray-500">{emp.email}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {emp.teamsUserId ? (
+                      <span className="px-2.5 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Linked to Teams</span>
+                    ) : (
+                      <span className="px-2.5 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">Not Linked</span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {emp.managerEmails?.length || 0}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <button onClick={() => openEditModal(emp)} className="text-primary hover:text-primaryHover mr-4">
+                      <Edit2 size={16} />
+                    </button>
+                    <button onClick={() => handleDelete(emp.id)} className="text-red-600 hover:text-red-900">
+                      <Trash2 size={16} />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {employees.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="px-6 py-12 text-center text-gray-500">No employees found.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200">
+              <h3 className="text-lg font-bold text-gray-900">{isEditing ? 'Edit Employee' : 'Add Employee'}</h3>
+            </div>
+            <div className="p-6">
+              {error && (
+                <div className="mb-4 bg-red-50 text-red-700 p-3 rounded-lg border border-red-200 text-sm">
+                  {error}
+                </div>
+              )}
+              <form onSubmit={handleSubmit} className="space-y-5">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                  <input required type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-primary focus:border-primary sm:text-sm" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                  <input required type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-primary focus:border-primary sm:text-sm" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Select Managers</label>
+                  <div className="space-y-2 bg-gray-50 border border-gray-200 rounded-lg p-3 max-h-48 overflow-y-auto">
+                    {employees.filter(e => e.id !== formData.id).map(emp => (
+                      <label key={emp.email} className="flex items-center space-x-3 cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          checked={formData.managerEmails?.includes(emp.email)}
+                          onChange={() => handleManagerToggle(emp.email)}
+                          className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
+                        />
+                        <span className="text-sm text-gray-700">{emp.name} <span className="text-gray-400">({emp.email})</span></span>
+                      </label>
+                    ))}
+                    {employees.length <= (isEditing ? 1 : 0) && <span className="text-sm text-gray-500 italic">No other employees available.</span>}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Shift</label>
+                  <select value={formData.shiftId || ''} onChange={e => setFormData({...formData, shiftId: e.target.value})} className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-primary focus:border-primary sm:text-sm bg-white">
+                    <option value="">No Shift</option>
+                    {shifts.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                </div>
+                <div className="flex justify-end space-x-3 mt-6 pt-6 border-t border-gray-200">
+                  <button type="button" onClick={() => setIsModalOpen(false)} disabled={isSubmitting} className="px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50">Cancel</button>
+                  <button type="submit" disabled={isSubmitting} className="px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-lg text-white bg-primary hover:bg-primaryHover disabled:opacity-50 flex items-center">
+                    {isSubmitting ? 'Saving...' : (isEditing ? 'Save Changes' : 'Add Employee')}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

@@ -8,7 +8,11 @@ export class WorkPlanController {
   @Post()
   saveDailyPlan(@Body() body: any) {
     const { attendanceId, tasks, permissionMinutes } = body;
-    return this.workPlanService.saveDailyPlan(attendanceId, tasks, permissionMinutes);
+    return this.workPlanService.saveDailyPlan(
+      attendanceId,
+      tasks,
+      permissionMinutes,
+    );
   }
 
   @Put('bulk-progress')
@@ -24,7 +28,11 @@ export class WorkPlanController {
   @Post('summary')
   saveSummary(@Body() data: any) {
     const { attendanceId, overallStatus, blockerType, remarks } = data;
-    return this.workPlanService.saveSummary(attendanceId, { overallStatus, blockerType, remarks });
+    return this.workPlanService.saveSummary(attendanceId, {
+      overallStatus,
+      blockerType,
+      remarks,
+    });
   }
 
   @Get(':attendanceId')
