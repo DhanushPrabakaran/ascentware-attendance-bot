@@ -1,4 +1,5 @@
-import { ActivityHandler, MessageFactory, TurnContext } from 'botbuilder';
+import { MessageFactory, TurnContext } from 'botbuilder';
+import { AgentApplication, TurnState } from '@microsoft/agents-hosting';
 import { BackendService } from './services/BackendService';
 import { CardBuilder } from './cards/CardBuilder';
 import { PlanTasksCard } from './cards/PlanTasksCard';
@@ -9,7 +10,7 @@ import * as path from 'path';
 const MAP_FILE = path.join(__dirname, '../../activityMap.json');
 const CONSUMED_FILE = path.join(__dirname, '../../consumedIds.json');
 
-export class TeamsAttendanceBot extends ActivityHandler {
+export class TeamsAttendanceBot {
     private static activityMap: Record<string, string> = {};
     private static consumedIds: Record<string, boolean> = {};
     private static processingIds = new Set<string>();
@@ -52,54 +53,53 @@ export class TeamsAttendanceBot extends ActivityHandler {
     }
 
     constructor() {
-        super();
         TeamsAttendanceBot.loadData();
+    }
 
-        this.onMembersAdded(async (context, next) => {
+    registerHandlers(app: AgentApplication<TurnState>) {
+        app.onActivity('conversationUpdate', async (context) => {
             const membersAdded = context.activity.membersAdded;
             if (membersAdded && membersAdded.length > 0) {
                 for (let cnt = 0; cnt < membersAdded.length; cnt++) {
-                    if (membersAdded[cnt].id !== context.activity.recipient.id) {
-                        const response = await context.sendActivity({ attachments: [CardBuilder.getCheckInCard()] });
+                    if (membersAdded[cnt].id !== context.activity.recipient?.id) {
+                        const response = await context.sendActivity({ type: 'message', attachments: [CardBuilder.getCheckInCard()] } as any);
                         if (response && response.id) {
                             TeamsAttendanceBot.setActivity(membersAdded[cnt].id + '_checkIn', response.id);
                         }
                     }
                 }
             }
-            await next();
         });
 
-        this.onMessage(async (context, next) => {
+        app.onActivity('message', async (context) => {
             const text = context.activity.text ? context.activity.text.trim().toLowerCase() : '';
             const value = context.activity.value;
 
-            if (value && value.action) {
+            if (value && (value as any).action) {
                 await this.handleCardAction(context, value);
             } else if (text === 'hello' || text === 'hi' || text === 'check in' || text === 'start') {
-                const response = await context.sendActivity({ attachments: [CardBuilder.getCheckInCard()] });
+                const response = await context.sendActivity({ type: 'message', attachments: [CardBuilder.getCheckInCard()] } as any);
                 if (response && response.id) {
-                    TeamsAttendanceBot.setActivity(context.activity.from.id + '_checkIn', response.id);
+                    TeamsAttendanceBot.setActivity(context.activity.from?.id + '_checkIn', response.id);
                 }
             } else {
                 await context.sendActivity("Type 'hello' to open the menu, or click the buttons on the cards.");
             }
-            await next();
         });
     }
 
-    async handleCardAction(context: TurnContext, value: any) {
-        const teamsUserId = context.activity.from.id;
-        let fallbackId = value.attendanceId ? TeamsAttendanceBot.getActivity(value.attendanceId + '_' + value.action) : null;
+    async handleCardAction(context: any, value: any) {
+        const teamsUserId = context.activity.from?.id;
+        let fallbackId = (value as any).attendanceId ? TeamsAttendanceBot.getActivity((value as any).attendanceId + '_' + (value as any).action) : null;
         if (!fallbackId) {
-            fallbackId = TeamsAttendanceBot.getActivity(teamsUserId + '_' + value.action) || null;
+            fallbackId = TeamsAttendanceBot.getActivity(teamsUserId + '_' + (value as any).action) || null;
         }
         
         // Prioritize our internally tracked fallback ID, because the emulator's replyToId
         // can sometimes point to the user's original message rather than the bot's card.
         const replyToId = fallbackId || context.activity.replyToId;
         
-        console.log(`[DEBUG] action=${value.action}, activity.id=${context.activity.id}, activity.replyToId=${context.activity.replyToId}, fallbackId=${fallbackId}, final replyToId=${replyToId}`);
+        console.log(`[DEBUG] action=${(value as any).action}, activity.id=${context.activity.id}, activity.replyToId=${context.activity.replyToId}, fallbackId=${fallbackId}, final replyToId=${replyToId}`);
 
         // Idempotency: Prevent double-clicks and reuse of old consumed cards
         if (replyToId) {
@@ -110,7 +110,7 @@ export class TeamsAttendanceBot extends ActivityHandler {
         }
 
         try {
-            if (value.action === 'checkIn') {
+            if ((value as any).action === 'checkIn') {
                 const attendance = await BackendService.checkIn(teamsUserId);
                 
                 if (replyToId) {
@@ -121,12 +121,12 @@ export class TeamsAttendanceBot extends ActivityHandler {
                     TeamsAttendanceBot.markConsumed(replyToId);
                 }
                 
-                const response = await context.sendActivity({ attachments: [PlanTasksCard.getCard(attendance.id)] });
+                const response = await context.sendActivity({ type: 'message', attachments: [PlanTasksCard.getCard(attendance.id)] });
                 if (response && response.id) {
                     TeamsAttendanceBot.setActivity(attendance.id + '_saveAllTasks', response.id);
                 }
             } 
-            else if (value.action === 'saveAllTasks') {
+            else if ((value as any).action === 'saveAllTasks') {
                 const tasks = [];
                 let totalEstimatedMinutes = 0;
 
@@ -158,16 +158,16 @@ export class TeamsAttendanceBot extends ActivityHandler {
                         TeamsAttendanceBot.processingIds.delete(replyToId);
                     }
                     
-                    const response = await context.sendActivity({ attachments: [PlanTasksCard.getCard(value.attendanceId, errorMsg, value)] });
+                    const response = await context.sendActivity({ type: 'message', attachments: [PlanTasksCard.getCard((value as any).attendanceId, errorMsg, value)] });
                     if (response && response.id) {
-                        TeamsAttendanceBot.setActivity(value.attendanceId + '_saveAllTasks', response.id);
+                        TeamsAttendanceBot.setActivity((value as any).attendanceId + '_saveAllTasks', response.id);
                     }
                     
                     return; // Prevent saving
                 }
                 
                 if (tasks.length > 0 || permissionMinutes > 0) {
-                    await BackendService.saveWorkPlan(value.attendanceId, tasks, permissionMinutes);
+                    await BackendService.saveWorkPlan((value as any).attendanceId, tasks, permissionMinutes);
                 }
 
                 if (replyToId) {
@@ -178,14 +178,14 @@ export class TeamsAttendanceBot extends ActivityHandler {
                     TeamsAttendanceBot.markConsumed(replyToId);
                 }
 
-                const response = await context.sendActivity({ attachments: [CardBuilder.getWorkingCard(value.attendanceId)] });
+                const response = await context.sendActivity({ type: 'message', attachments: [CardBuilder.getWorkingCard((value as any).attendanceId)] });
                 if (response && response.id) {
-                    TeamsAttendanceBot.setActivity(value.attendanceId + '_startBreak', response.id);
-                    TeamsAttendanceBot.setActivity(value.attendanceId + '_checkOut', response.id);
+                    TeamsAttendanceBot.setActivity((value as any).attendanceId + '_startBreak', response.id);
+                    TeamsAttendanceBot.setActivity((value as any).attendanceId + '_checkOut', response.id);
                 }
             }
-            else if (value.action === 'startBreak') {
-                await BackendService.startBreak(value.attendanceId);
+            else if ((value as any).action === 'startBreak') {
+                await BackendService.startBreak((value as any).attendanceId);
                 
                 if (replyToId) {
                     try { await context.deleteActivity(replyToId); } catch (e) {}
@@ -195,13 +195,13 @@ export class TeamsAttendanceBot extends ActivityHandler {
                     TeamsAttendanceBot.markConsumed(replyToId);
                 }
 
-                const response = await context.sendActivity({ attachments: [CardBuilder.getOnBreakCard(value.attendanceId)] });
+                const response = await context.sendActivity({ type: 'message', attachments: [CardBuilder.getOnBreakCard((value as any).attendanceId)] });
                 if (response && response.id) {
-                    TeamsAttendanceBot.setActivity(value.attendanceId + '_endBreak', response.id);
+                    TeamsAttendanceBot.setActivity((value as any).attendanceId + '_endBreak', response.id);
                 }
             }
-            else if (value.action === 'endBreak') {
-                await BackendService.endBreak(value.attendanceId);
+            else if ((value as any).action === 'endBreak') {
+                await BackendService.endBreak((value as any).attendanceId);
 
                 if (replyToId) {
                     try { await context.deleteActivity(replyToId); } catch (e) {}
@@ -211,14 +211,14 @@ export class TeamsAttendanceBot extends ActivityHandler {
                     TeamsAttendanceBot.markConsumed(replyToId);
                 }
 
-                const response = await context.sendActivity({ attachments: [CardBuilder.getWorkingCard(value.attendanceId)] });
+                const response = await context.sendActivity({ type: 'message', attachments: [CardBuilder.getWorkingCard((value as any).attendanceId)] });
                 if (response && response.id) {
-                    TeamsAttendanceBot.setActivity(value.attendanceId + '_startBreak', response.id);
-                    TeamsAttendanceBot.setActivity(value.attendanceId + '_checkOut', response.id);
+                    TeamsAttendanceBot.setActivity((value as any).attendanceId + '_startBreak', response.id);
+                    TeamsAttendanceBot.setActivity((value as any).attendanceId + '_checkOut', response.id);
                 }
             }
-            else if (value.action === 'checkOut') {
-                const tasks = await BackendService.getTasks(value.attendanceId);
+            else if ((value as any).action === 'checkOut') {
+                const tasks = await BackendService.getTasks((value as any).attendanceId);
 
                 if (replyToId) {
                     try { await context.deleteActivity(replyToId); } catch (e) {}
@@ -228,12 +228,12 @@ export class TeamsAttendanceBot extends ActivityHandler {
                     TeamsAttendanceBot.markConsumed(replyToId);
                 }
 
-                const response = await context.sendActivity({ attachments: [ReviewTasksCard.getCard(value.attendanceId, tasks)] });
+                const response = await context.sendActivity({ type: 'message', attachments: [ReviewTasksCard.getCard((value as any).attendanceId, tasks)] });
                 if (response && response.id) {
-                    TeamsAttendanceBot.setActivity(value.attendanceId + '_submitReview', response.id);
+                    TeamsAttendanceBot.setActivity((value as any).attendanceId + '_submitReview', response.id);
                 }
             }
-            else if (value.action === 'submitReview') {
+            else if ((value as any).action === 'submitReview') {
                 const tasksToUpdate = [];
                 for (const key of Object.keys(value)) {
                     if (key.startsWith('status_')) {
@@ -251,7 +251,7 @@ export class TeamsAttendanceBot extends ActivityHandler {
                     await BackendService.bulkUpdateTasks(tasksToUpdate);
                 }
 
-                const result = await BackendService.checkOut(value.attendanceId);
+                const result = await BackendService.checkOut((value as any).attendanceId);
 
                 if (replyToId) {
                     try { await context.deleteActivity(replyToId); } catch (e) {}

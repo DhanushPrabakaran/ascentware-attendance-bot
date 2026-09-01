@@ -20,6 +20,8 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
+    "@microsoft/agents-hosting": "^1.8.1",
+    "@microsoft/agents-hosting-express": "^1.8.1",
     "@nestjs/common": "^11.0.1",
     "@nestjs/core": "^11.0.1",
     "@nestjs/mapped-types": "*",
@@ -27,6 +29,7 @@
     "@prisma/adapter-pg": "^7.9.1",
     "@prisma/client": "^7.9.1",
     "adaptivecards": "^3.0.6",
+    "axios": "^1.20.0",
     "botbuilder": "^4.23.3",
     "dotenv": "^17.4.2",
     "pg": "^8.23.0",

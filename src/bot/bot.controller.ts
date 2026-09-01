@@ -1,4 +1,4 @@
-import { Controller, Post, Req, Res } from '@nestjs/common';
+import { Controller, Post, Req, Res, All } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { BotService } from './bot.service';
 
@@ -7,7 +7,7 @@ export class BotController {
   constructor(private readonly botService: BotService) {}
 
   @Post()
-  async processMessage(@Req() req: Request, @Res() res: Response) {
-    await this.botService.process(req, res);
+  processMessage(@Req() req: Request, @Res() res: Response) {
+    this.botService.handler(req, res, () => {});
   }
 }
