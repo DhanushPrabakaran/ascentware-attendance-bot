@@ -8,6 +8,17 @@ export class BotController {
 
   @Post()
   async processMessage(@Req() req: Request, @Res() res: Response) {
-    await this.botService.handler(req, res, () => {});
+    console.log(`[BotController] Received message from Bot Framework! Method: ${req.method}, Auth: ${req.headers.authorization ? 'Present' : 'Missing'}`);
+    try {
+      await this.botService.handler(req, res, () => {
+        console.log('[BotController] Next was called by JWT middleware!');
+      });
+      console.log(`[BotController] Request processed. Headers sent: ${res.headersSent}`);
+    } catch (e: any) {
+      console.error('[BotController] Error processing message:', e);
+      if (!res.headersSent) {
+        res.status(500).send(e.message);
+      }
+    }
   }
 }
