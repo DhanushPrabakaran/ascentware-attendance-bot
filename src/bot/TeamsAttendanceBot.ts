@@ -35,37 +35,33 @@ export class TeamsAttendanceBot {
     const employee = await BackendService.getEmployeeByTeamsUserId(teamsUserId);
 
     if (!employee) {
-      const text = context.activity.text ? context.activity.text.trim().toLowerCase() : '';
+      // The user wants us to use the available details (like aadObjectId and name) 
+      // from the Bot Framework payload to automatically link/create the account
+      // without ever asking them to type an email.
+      const aadObjectId = context.activity.from?.aadObjectId;
+      const name = context.activity.from?.name || 'Unknown User';
       
-      const emailRegex = /([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9._-]+)/i;
-      const match = emailRegex.exec(text);
+      // Since the database requires an email, we generate a stable internal email
+      // using their aadObjectId or teamsUserId.
+      const generatedEmail = aadObjectId 
+        ? `${aadObjectId}@ascentware.internal` 
+        : `${teamsUserId.replace(/[^a-zA-Z0-9]/g, '')}@ascentware.internal`;
 
-      if (match && match[0]) {
-        const email = match[0];
-        const name = context.activity.from?.name || email.split('@')[0];
-        try {
-          await BackendService.linkTeamsUserId(email, teamsUserId, name);
-          await context.sendActivity(
-            MessageFactory.text("Account successfully linked! Type 'hello' to open the menu.")
-          );
-        } catch (e) {
-          await context.sendActivity(
-            MessageFactory.text("Error linking account. Please try again or contact your administrator.")
-          );
-        }
-      } else {
-        if (text && text.trim().length > 0) {
-          await context.sendActivity(
-            MessageFactory.text(`I saw your message: "${text}". However, I couldn't find a valid email address in it. Please type exactly your official company email address (e.g., name@company.com).`)
-          );
-        } else {
-          await context.sendActivity(
-            MessageFactory.text("Welcome to Ascentware Bot! I don't recognize your Teams account.\nPlease type your official company email address to link your account.")
-          );
-        }
+      try {
+        await BackendService.linkTeamsUserId(generatedEmail, teamsUserId, name);
+        
+        // Since we did this completely silently and automatically, 
+        // we can just return true and let them continue immediately!
+        return true;
+      } catch (e) {
+        console.error('[TeamsBot] Failed to auto-link using internal email', e);
+        await context.sendActivity(
+          MessageFactory.text("Error automatically linking your account. Please contact your administrator.")
+        );
+        return false;
       }
-      return false;
     }
+    
     return true;
   }
 
