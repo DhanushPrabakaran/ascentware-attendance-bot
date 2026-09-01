@@ -7,7 +7,7 @@ export class BotController {
   constructor(private readonly botService: BotService) {}
 
   @Post()
-  processMessage(@Req() req: Request, @Res() res: Response) {
-    this.botService.handler(req, res, () => {});
+  async processMessage(@Req() req: Request, @Res() res: Response) {
+    await this.botService.handler(req, res, () => {});
   }
 }
