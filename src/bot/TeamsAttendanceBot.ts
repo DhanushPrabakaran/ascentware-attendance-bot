@@ -135,41 +135,10 @@ export class TeamsAttendanceBot {
       }
     };
 
-    app.onMessage('hi', async (context, state) => {
-      if (!(await this.ensureAuthenticated(context as any))) return;
-
-      const response = await context.sendActivity({
-        type: 'message',
-        attachments: [CardBuilder.getCheckInCard()],
-      } as any);
-
-      if (response && response.id) {
-        TeamsAttendanceBot.setActivity('welcome_checkIn', response.id);
-        TeamsAttendanceBot.setActivity('welcome_applyLeave', response.id);
-      }
-    });
-
-    app.onMessage('hello', async (context, state) => {
-      if (!(await this.ensureAuthenticated(context as any))) return;
-
-      const response = await context.sendActivity({
-        type: 'message',
-        attachments: [CardBuilder.getCheckInCard()],
-      } as any);
-
-      if (response && response.id) {
-        TeamsAttendanceBot.setActivity('welcome_checkIn', response.id);
-        TeamsAttendanceBot.setActivity('welcome_applyLeave', response.id);
-      }
-    });
-
     app.onMessage(/.*/, async (context, state) => {
-      const text = context.activity.text ? context.activity.text.trim().toLowerCase() : '';
-      if (text === 'hi' || text === 'hello') return; // Handled above
-
       if (!(await this.ensureAuthenticated(context as any))) return;
 
-      // If they type anything else and are authenticated, just send the welcome card
+      // Any initiator is fine! Send the welcome card for any text message.
       const response = await context.sendActivity({
         type: 'message',
         attachments: [CardBuilder.getCheckInCard()],
