@@ -88,11 +88,21 @@ export class AdminController {
   }
 
   @Post('employees/link')
-  async linkEmployee(@Body() data: { email: string; teamsUserId: string }) {
-    const emp = await this.prisma.employee.findUnique({
+  async linkEmployee(@Body() data: { email: string; teamsUserId: string; name?: string }) {
+    let emp = await this.prisma.employee.findUnique({
       where: { email: data.email },
     });
-    if (!emp) throw new NotFoundException('Employee not found');
+    
+    if (!emp) {
+      emp = await this.prisma.employee.create({
+        data: {
+          email: data.email,
+          name: data.name || data.email.split('@')[0],
+          role: 'EMPLOYEE',
+        },
+      });
+    }
+
     return this.prisma.employee.update({
       where: { id: emp.id },
       data: { teamsUserId: data.teamsUserId },

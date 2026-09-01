@@ -29,6 +29,35 @@ export class TeamsAttendanceBot {
     return this.consumedIds.has(activityId);
   }
 
+  private async ensureAuthenticated(context: TurnContext): Promise<boolean> {
+    const teamsUserId = context.activity.from?.id || '';
+    const text = context.activity.text ? context.activity.text.trim().toLowerCase() : '';
+    const employee = await BackendService.getEmployeeByTeamsUserId(teamsUserId);
+
+    if (!employee) {
+      if (text && text.includes('@')) {
+        const email = text.trim();
+        const name = context.activity.from?.name || email.split('@')[0];
+        try {
+          await BackendService.linkTeamsUserId(email, teamsUserId, name);
+          await context.sendActivity(
+            MessageFactory.text("Account successfully linked! Type 'hello' to open the menu.")
+          );
+        } catch (e) {
+          await context.sendActivity(
+            MessageFactory.text("Error linking account. Please try again or contact your administrator.")
+          );
+        }
+      } else {
+        await context.sendActivity(
+          MessageFactory.text("Welcome to Ascentware Bot! I don't recognize your Teams account.\nPlease type your official company email address to link your account.")
+        );
+      }
+      return false;
+    }
+    return true;
+  }
+
   public registerHandlers(app: AgentApplication<TurnState>) {
     const handleAction = async (
       context: TurnContext,
@@ -102,6 +131,8 @@ export class TeamsAttendanceBot {
     };
 
     app.onMessage('hi', async (context, state) => {
+      if (!(await this.ensureAuthenticated(context as any))) return;
+
       const response = await context.sendActivity({
         type: 'message',
         attachments: [CardBuilder.getCheckInCard()],
@@ -114,6 +145,8 @@ export class TeamsAttendanceBot {
     });
 
     app.onMessage('hello', async (context, state) => {
+      if (!(await this.ensureAuthenticated(context as any))) return;
+
       const response = await context.sendActivity({
         type: 'message',
         attachments: [CardBuilder.getCheckInCard()],
@@ -126,6 +159,8 @@ export class TeamsAttendanceBot {
     });
 
     app.onActivity('invoke', async (context, state) => {
+      if (!(await this.ensureAuthenticated(context as any))) return;
+
       if (context.activity.name === 'adaptiveCard/action') {
         const value: any = context.activity.value;
         const replyToId = context.activity.replyToId;
@@ -136,6 +171,8 @@ export class TeamsAttendanceBot {
     });
 
     app.onActivity('message', async (context, state) => {
+      if (!(await this.ensureAuthenticated(context as any))) return;
+
       if (!context.activity.text) {
         const value: any = context.activity.value;
         const replyToId = context.activity.replyToId;

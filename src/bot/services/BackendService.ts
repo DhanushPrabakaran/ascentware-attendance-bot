@@ -34,10 +34,11 @@ export class BackendService {
     }
   }
 
-  static async linkTeamsUserId(email: string, teamsUserId: string) {
+  static async linkTeamsUserId(email: string, teamsUserId: string, name?: string) {
     const res = await axios.post(API_URL + '/admin/employees/link', {
       email,
       teamsUserId,
+      name,
     });
     return res.data;
   }
