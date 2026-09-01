@@ -15,17 +15,19 @@ export class BotService {
     
     // The new SDK strict parser looks for 'CLIENTID' without underscore, so we manually
     // pass the correct credentials into the CloudAdapter to ensure it works on Render.
-    const adapter = new CloudAdapter({
+    const authConfig = {
       clientId: process.env.CLIENT_ID || process.env.CLIENTID || process.env.MicrosoftAppId,
       clientSecret: process.env.CLIENT_SECRET || process.env.CLIENTSECRET || process.env.MicrosoftAppPassword,
       tenantId: process.env.MicrosoftAppTenantId || process.env.TENANT_ID || ''
-    });
+    };
+
+    const adapter = new CloudAdapter(authConfig);
 
     this.app = new AgentApplication<TurnState>({ storage, adapter });
 
     this.myBot = new TeamsAttendanceBot();
     this.myBot.registerHandlers(this.app);
 
-    this.handler = createAgentRequestHandler(this.app);
+    this.handler = createAgentRequestHandler(this.app, authConfig);
   }
 }
