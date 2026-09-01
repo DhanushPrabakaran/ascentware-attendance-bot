@@ -15,11 +15,15 @@ export class BotService {
     
     // The new SDK strict parser looks for 'CLIENTID' without underscore, so we manually
     // pass the correct credentials into the CloudAdapter to ensure it works on Render.
-    const authConfig = {
+    const authConfig: any = {
       clientId: process.env.CLIENT_ID || process.env.CLIENTID || process.env.MicrosoftAppId,
       clientSecret: process.env.CLIENT_SECRET || process.env.CLIENTSECRET || process.env.MicrosoftAppPassword,
-      tenantId: process.env.MicrosoftAppTenantId || process.env.TENANT_ID || ''
     };
+    
+    const configuredTenant = process.env.MicrosoftAppTenantId || process.env.TENANT_ID;
+    if (configuredTenant) {
+        authConfig.tenantId = configuredTenant;
+    }
 
     const adapter = new CloudAdapter(authConfig);
 
