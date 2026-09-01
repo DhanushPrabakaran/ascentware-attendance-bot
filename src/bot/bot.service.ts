@@ -8,6 +8,7 @@ import {
 } from '@microsoft/agents-hosting';
 import { createAgentRequestHandler } from '@microsoft/agents-hosting-express';
 import { TeamsAttendanceBot } from './TeamsAttendanceBot';
+import { WorkflowEngine } from './workflows/workflow.engine';
 
 @Injectable()
 export class BotService {
@@ -15,7 +16,7 @@ export class BotService {
   private myBot: TeamsAttendanceBot;
   public handler: RequestHandler;
 
-  constructor() {
+  constructor(private workflowEngine: WorkflowEngine) {
     const storage = new MemoryStorage();
 
     // The new SDK strict parser looks for 'CLIENTID' without underscore, so we manually
@@ -41,7 +42,7 @@ export class BotService {
 
     this.app = new AgentApplication<TurnState>({ storage, adapter });
 
-    this.myBot = new TeamsAttendanceBot();
+    this.myBot = new TeamsAttendanceBot(this.workflowEngine);
     this.myBot.registerHandlers(this.app);
 
     this.handler = createAgentRequestHandler(this.app, authConfig);

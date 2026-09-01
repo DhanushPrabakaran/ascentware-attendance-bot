@@ -1,0 +1,40 @@
+{
+  "actions": {
+    "checkIn": {
+      "handler": "CheckInHandler",
+      "description": "Handles user check-in and task planning."
+    },
+    "applyLeave": {
+      "handler": "ApplyLeaveHandler",
+      "description": "Displays the leave application form."
+    },
+    "submitLeave": {
+      "handler": "SubmitLeaveHandler",
+      "description": "Processes a submitted leave application."
+    },
+    "cancelPlanTasks": {
+      "handler": "CancelPlanTasksHandler",
+      "description": "Skips task planning and goes to working state."
+    },
+    "saveAllTasks": {
+      "handler": "SaveAllTasksHandler",
+      "description": "Validates and saves the user's daily task plan."
+    },
+    "startBreak": {
+      "handler": "StartBreakHandler",
+      "description": "Registers the start of a break."
+    },
+    "endBreak": {
+      "handler": "EndBreakHandler",
+      "description": "Registers the end of a break."
+    },
+    "checkOut": {
+      "handler": "CheckOutHandler",
+      "description": "Initiates the end-of-day checkout process."
+    },
+    "submitReview": {
+      "handler": "SubmitReviewHandler",
+      "description": "Processes final task reviews and logs the checkout time."
+    }
+  }
+}
