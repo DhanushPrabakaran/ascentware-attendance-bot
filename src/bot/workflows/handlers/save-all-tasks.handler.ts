@@ -36,13 +36,10 @@ export class SaveAllTasksHandler implements IActionHandler {
     const permissionMinutes = parseInt(value.permissionMinutes, 10) || 0;
     const grandTotal = totalEstimatedMinutes + permissionMinutes;
 
-    if (grandTotal !== 480) {
-      const errorMsg = `Your planned tasks (${totalEstimatedMinutes} mins) plus approved leave/permission (${permissionMinutes} mins) equals ${grandTotal} mins. Your plan must account for exactly 8 hours (480 mins). Please adjust your plan below.`;
-
-      const validationErrorText = MessageFactory.text(
-        `Validation Error: ${errorMsg}`,
-      );
-
+    // Validation removed as per user request
+    if (tasks.length === 0 && permissionMinutes === 0) {
+      const errorMsg = `You must provide at least one task or permission.`;
+      const validationErrorText = MessageFactory.text(`Validation Error: ${errorMsg}`);
       return {
         activities: [
           validationErrorText,
