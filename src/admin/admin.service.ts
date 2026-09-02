@@ -28,11 +28,27 @@ export class AdminService {
   }
 
   async createEmployee(data: any) {
-    return this.prisma.employee.create({ data });
+    const validData = {
+      name: data.name,
+      email: data.email,
+      role: data.role || 'EMPLOYEE',
+      teamsUserId: data.teamsUserId || null,
+      managerEmails: data.managerEmails || [],
+      shiftId: data.shiftId || null,
+    };
+    return this.prisma.employee.create({ data: validData });
   }
 
   async updateEmployee(id: string, data: any) {
-    return this.prisma.employee.update({ where: { id }, data });
+    const validData = {
+      name: data.name,
+      email: data.email,
+      role: data.role,
+      teamsUserId: data.teamsUserId || null,
+      managerEmails: data.managerEmails || [],
+      shiftId: data.shiftId || null,
+    };
+    return this.prisma.employee.update({ where: { id }, data: validData });
   }
 
   async deleteEmployee(id: string) {
