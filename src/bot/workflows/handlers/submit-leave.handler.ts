@@ -5,6 +5,7 @@ import {
   HandlerResult,
 } from '../interfaces/action-handler.interface';
 import { BackendService } from '../../services/BackendService';
+import { CardBuilder } from '../../cards/CardBuilder';
 
 @Injectable()
 export class SubmitLeaveHandler implements IActionHandler {
@@ -13,28 +14,40 @@ export class SubmitLeaveHandler implements IActionHandler {
     value: any,
     replyToId?: string,
   ): Promise<HandlerResult> {
-    const { startDate, endDate, reason } = value;
+    const { leaveType, startDate, endDate, reason } = value;
 
-    if (!startDate || !endDate || !reason) {
-      return {
-        errorMessage:
-          'Validation Error: Please fill all fields to submit a leave request.',
-      };
+    if (!leaveType || !startDate || !endDate || !reason) {
+      if (replyToId) {
+        await context.updateActivity({
+          type: 'message',
+          id: replyToId,
+          attachments: [CardBuilder.getLeaveRequestCard('Please fill all fields to submit a leave request.', value)],
+        } as any);
+      }
+      return { markConsumed: true };
     }
 
     try {
-      await BackendService.applyLeave(context.activity.from.id, reason);
+      await BackendService.applyLeave(context.activity.from.id, `[${leaveType}] ${startDate} to ${endDate}: ${reason}`);
 
-      const textMessage = MessageFactory.text(
-        'Leave application submitted successfully. Your manager will be notified.',
-      );
-      return {
-        activities: [textMessage],
-        deleteReplyToId: true,
-        markConsumed: true,
-      };
+      if (replyToId) {
+        await context.updateActivity({
+          type: 'message',
+          id: replyToId,
+          attachments: [CardBuilder.getReadOnlyReceiptCard('Leave Submitted', 'Your leave application was submitted successfully. Your manager will be notified.')],
+        } as any);
+      }
+      
+      return { markConsumed: true };
     } catch (e: any) {
-      return { errorMessage: e.message };
+      if (replyToId) {
+        await context.updateActivity({
+          type: 'message',
+          id: replyToId,
+          attachments: [CardBuilder.getLeaveRequestCard(e.message, value)],
+        } as any);
+      }
+      return { markConsumed: true };
     }
   }
 }

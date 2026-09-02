@@ -34,32 +34,103 @@ export class CardBuilder {
     });
   }
 
-  static getLeaveRequestCard() {
+  static getLeaveRequestCard(validationError?: string, previousValues?: any) {
+    const body: any[] = [
+      {
+        type: 'TextBlock',
+        text: 'Leave Request',
+        weight: 'Bolder',
+        size: 'Medium',
+      },
+    ];
+
+    if (validationError) {
+      body.push({
+        type: 'TextBlock',
+        text: `Error: ${validationError}`,
+        color: 'Attention',
+        weight: 'Bolder',
+        wrap: true,
+      });
+    }
+
+    body.push(
+      {
+        type: 'TextBlock',
+        text: 'Leave Type',
+        weight: 'Bolder',
+      },
+      {
+        type: 'Input.ChoiceSet',
+        id: 'leaveType',
+        style: 'compact',
+        value: previousValues?.leaveType || 'Sick',
+        choices: [
+          { title: 'Sick Leave', value: 'Sick' },
+          { title: 'Personal Leave', value: 'Personal' },
+          { title: 'Earned Leave', value: 'Earned' },
+        ],
+      },
+      {
+        type: 'ColumnSet',
+        columns: [
+          {
+            type: 'Column',
+            width: 'stretch',
+            items: [
+              { type: 'TextBlock', text: 'Start Date', weight: 'Bolder' },
+              {
+                type: 'Input.Date',
+                id: 'startDate',
+                value: previousValues?.startDate,
+              },
+            ],
+          },
+          {
+            type: 'Column',
+            width: 'stretch',
+            items: [
+              { type: 'TextBlock', text: 'End Date', weight: 'Bolder' },
+              {
+                type: 'Input.Date',
+                id: 'endDate',
+                value: previousValues?.endDate,
+              },
+            ],
+          },
+        ],
+      },
+      {
+        type: 'TextBlock',
+        text: 'Reason / Description',
+        weight: 'Bolder',
+      },
+      {
+        type: 'Input.Text',
+        id: 'reason',
+        placeholder: 'Reason for leave (e.g., Doctor appointment)',
+        isMultiline: true,
+        value: previousValues?.reason,
+      },
+    );
+
     return CardFactory.adaptiveCard({
       $schema: 'http://adaptivecards.io/schemas/adaptive-card.json',
       type: 'AdaptiveCard',
       version: '1.3',
-      body: [
-        {
-          type: 'TextBlock',
-          text: 'Leave Request',
-          weight: 'Bolder',
-          size: 'Medium',
-        },
-        {
-          type: 'Input.Text',
-          id: 'reason',
-          placeholder: 'Reason for leave (e.g., Sick, Personal)',
-          isMultiline: true,
-          isRequired: true,
-          errorMessage: 'Please provide a reason',
-        },
-      ],
+      body: body,
       actions: [
         {
           type: 'Action.Submit',
           title: 'Submit Leave Request',
+          style: 'positive',
           data: { action: 'submitLeave' },
+        },
+        {
+          type: 'Action.Submit',
+          title: 'Cancel',
+          style: 'destructive',
+          data: { action: 'cancelLeave' },
         },
       ],
     });

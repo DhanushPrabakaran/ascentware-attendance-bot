@@ -27,7 +27,7 @@ export class PlanTasksCard {
 
     const taskColumn: any = {
       type: 'Column',
-      width: '50',
+      width: 'stretch',
       items: [
         {
           type: 'TextBlock',
@@ -40,7 +40,7 @@ export class PlanTasksCard {
     };
     const priorityColumn: any = {
       type: 'Column',
-      width: '20',
+      width: '90px',
       items: [
         {
           type: 'TextBlock',
@@ -53,7 +53,7 @@ export class PlanTasksCard {
     };
     const timeColumn: any = {
       type: 'Column',
-      width: '20',
+      width: '80px',
       items: [
         {
           type: 'TextBlock',
@@ -66,7 +66,7 @@ export class PlanTasksCard {
     };
     const actionColumn: any = {
       type: 'Column',
-      width: '10',
+      width: 'auto',
       items: [
         { type: 'TextBlock', text: ' ', size: 'Small', spacing: 'Small' },
       ],

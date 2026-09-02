@@ -53,7 +53,7 @@ export class ReviewTasksCard {
       columns: [
         {
           type: 'Column',
-          width: '40',
+          width: 'stretch',
           items: [
             {
               type: 'TextBlock',
@@ -65,7 +65,7 @@ export class ReviewTasksCard {
         },
         {
           type: 'Column',
-          width: '30',
+          width: '120px',
           items: [
             {
               type: 'TextBlock',
@@ -77,7 +77,7 @@ export class ReviewTasksCard {
         },
         {
           type: 'Column',
-          width: '30',
+          width: '120px',
           items: [
             {
               type: 'TextBlock',
@@ -100,7 +100,7 @@ export class ReviewTasksCard {
             columns: [
               {
                 type: 'Column',
-                width: '40',
+                width: 'stretch',
                 items: [
                   {
                     type: 'TextBlock',
@@ -112,7 +112,7 @@ export class ReviewTasksCard {
               },
               {
                 type: 'Column',
-                width: '30',
+                width: '120px',
                 items: [
                   {
                     type: 'Input.ChoiceSet',
@@ -129,25 +129,22 @@ export class ReviewTasksCard {
               },
               {
                 type: 'Column',
-                width: '30',
+                width: '100px',
                 items: [
                   {
                     type: 'Input.ChoiceSet',
                     id: `timeTaken_${task.id}`,
                     style: 'compact',
-                    value: task.estimatedMinutes
-                      ? task.estimatedMinutes.toString()
-                      : '60',
+                    value: task.estimatedMinutes?.toString() || '60',
                     choices: [
-                      { title: '15 mins', value: '15' },
-                      { title: '30 mins', value: '30' },
-                      { title: '45 mins', value: '45' },
-                      { title: '1 hr', value: '60' },
-                      { title: '1.5 hrs', value: '90' },
-                      { title: '2 hrs', value: '120' },
-                      { title: '3 hrs', value: '180' },
-                      { title: '4 hrs', value: '240' },
-                      { title: '8 hrs', value: '480' },
+                      { title: '15m', value: '15' },
+                      { title: '30m', value: '30' },
+                      { title: '45m', value: '45' },
+                      { title: '1h', value: '60' },
+                      { title: '1.5h', value: '90' },
+                      { title: '2h', value: '120' },
+                      { title: '3h', value: '180' },
+                      { title: '4h+', value: '240' },
                     ],
                   },
                 ],

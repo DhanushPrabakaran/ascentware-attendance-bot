@@ -7,7 +7,7 @@ import {
 import { CardBuilder } from '../../cards/CardBuilder';
 
 @Injectable()
-export class ApplyLeaveHandler implements IActionHandler {
+export class CancelLeaveHandler implements IActionHandler {
   async execute(
     context: TurnContext,
     value: any,
@@ -17,12 +17,7 @@ export class ApplyLeaveHandler implements IActionHandler {
       await context.updateActivity({
         type: 'message',
         id: replyToId,
-        attachments: [CardBuilder.getLeaveRequestCard()],
-      } as any);
-    } else {
-      await context.sendActivity({
-        type: 'message',
-        attachments: [CardBuilder.getLeaveRequestCard()],
+        attachments: [CardBuilder.getCheckInCard()],
       } as any);
     }
     return { markConsumed: true };

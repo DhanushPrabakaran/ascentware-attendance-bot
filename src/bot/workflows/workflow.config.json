@@ -12,6 +12,10 @@
       "handler": "SubmitLeaveHandler",
       "description": "Processes a submitted leave application."
     },
+    "cancelLeave": {
+      "handler": "CancelLeaveHandler",
+      "description": "Cancels leave application and goes back to check-in."
+    },
     "cancelPlanTasks": {
       "handler": "CancelPlanTasksHandler",
       "description": "Skips task planning and goes to working state."
