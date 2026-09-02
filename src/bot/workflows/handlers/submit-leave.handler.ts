@@ -17,37 +17,42 @@ export class SubmitLeaveHandler implements IActionHandler {
     const { leaveType, startDate, endDate, reason } = value;
 
     if (!leaveType || !startDate || !endDate || !reason) {
-      if (replyToId) {
-        await context.updateActivity({
-          type: 'message',
-          id: replyToId,
-          attachments: [CardBuilder.getLeaveRequestCard('Please fill all fields to submit a leave request.', value)],
-        } as any);
-      }
-      return { markConsumed: true };
+      return {
+        activities: [
+          {
+            type: 'message',
+            attachments: [CardBuilder.getLeaveRequestCard('Please fill all fields to submit a leave request.', value)],
+          },
+        ],
+        deleteReplyToId: true,
+        markConsumed: true,
+      };
     }
 
     try {
       await BackendService.applyLeave(context.activity.from.id, `[${leaveType}] ${startDate} to ${endDate}: ${reason}`);
 
-      if (replyToId) {
-        await context.updateActivity({
-          type: 'message',
-          id: replyToId,
-          attachments: [CardBuilder.getReadOnlyReceiptCard('Leave Submitted', 'Your leave application was submitted successfully. Your manager will be notified.')],
-        } as any);
-      }
-      
-      return { markConsumed: true };
+      return {
+        activities: [
+          {
+            type: 'message',
+            attachments: [CardBuilder.getReadOnlyReceiptCard('Leave Submitted', 'Your leave application was submitted successfully. Your manager will be notified.')],
+          },
+        ],
+        deleteReplyToId: true,
+        markConsumed: true,
+      };
     } catch (e: any) {
-      if (replyToId) {
-        await context.updateActivity({
-          type: 'message',
-          id: replyToId,
-          attachments: [CardBuilder.getLeaveRequestCard(e.message, value)],
-        } as any);
-      }
-      return { markConsumed: true };
+      return {
+        activities: [
+          {
+            type: 'message',
+            attachments: [CardBuilder.getLeaveRequestCard(e.message, value)],
+          },
+        ],
+        deleteReplyToId: true,
+        markConsumed: true,
+      };
     }
   }
 }

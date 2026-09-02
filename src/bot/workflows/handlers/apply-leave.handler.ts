@@ -13,18 +13,15 @@ export class ApplyLeaveHandler implements IActionHandler {
     value: any,
     replyToId?: string,
   ): Promise<HandlerResult> {
-    if (replyToId) {
-      await context.updateActivity({
-        type: 'message',
-        id: replyToId,
-        attachments: [CardBuilder.getLeaveRequestCard()],
-      } as any);
-    } else {
-      await context.sendActivity({
-        type: 'message',
-        attachments: [CardBuilder.getLeaveRequestCard()],
-      } as any);
-    }
-    return { markConsumed: true };
+    return {
+      activities: [
+        {
+          type: 'message',
+          attachments: [CardBuilder.getLeaveRequestCard()],
+        },
+      ],
+      deleteReplyToId: true,
+      markConsumed: true,
+    };
   }
 }

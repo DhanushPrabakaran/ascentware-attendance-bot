@@ -13,13 +13,15 @@ export class CancelLeaveHandler implements IActionHandler {
     value: any,
     replyToId?: string,
   ): Promise<HandlerResult> {
-    if (replyToId) {
-      await context.updateActivity({
-        type: 'message',
-        id: replyToId,
-        attachments: [CardBuilder.getCheckInCard()],
-      } as any);
-    }
-    return { markConsumed: true };
+    return {
+      activities: [
+        {
+          type: 'message',
+          attachments: [CardBuilder.getCheckInCard()],
+        },
+      ],
+      deleteReplyToId: true,
+      markConsumed: true,
+    };
   }
 }
