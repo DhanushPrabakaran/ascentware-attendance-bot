@@ -2,11 +2,10 @@ import { useEffect, useState } from 'react';
 
 interface Leave {
   id: string;
-  startDate: string;
-  endDate: string;
+  date: string;
   reason: string;
+  status: string;
   employee: { name: string; email: string };
-  createdAt: string;
 }
 
 export default function Leaves() {
@@ -35,16 +34,16 @@ export default function Leaves() {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between">
                 <div>
                   <h3 className="text-sm font-semibold text-gray-900">{l.employee.name} <span className="text-gray-500 font-normal text-xs ml-1">({l.employee.email})</span></h3>
-                  <p className="text-gray-700 mt-2 text-sm bg-gray-50 p-3 rounded-lg border border-gray-200 italic shadow-inner">
-                    "{l.reason}"
+                  <p className="text-gray-700 mt-2 text-sm bg-gray-50 p-3 rounded-lg border border-gray-200 shadow-inner whitespace-pre-wrap">
+                    {l.reason}
                   </p>
                 </div>
                 <div className="mt-4 sm:mt-0 sm:text-right">
                   <p className="text-xs font-semibold text-primary tracking-wider uppercase bg-blue-50 px-2.5 py-1 rounded-full border border-blue-100 inline-block">
-                    {new Date(l.startDate).toLocaleDateString()} &rarr; {new Date(l.endDate).toLocaleDateString()}
+                    {l.status}
                   </p>
                   <p className="text-xs text-gray-400 mt-2 font-medium">
-                    Applied: {new Date(l.createdAt).toLocaleString()}
+                    Applied: {new Date(l.date).toLocaleString()}
                   </p>
                 </div>
               </div>

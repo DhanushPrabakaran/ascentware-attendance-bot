@@ -6,6 +6,7 @@ import Employees from './pages/Employees';
 import Shifts from './pages/Shifts';
 import Settings from './pages/Settings';
 import Leaves from './pages/Leaves';
+import Attendance from './pages/Attendance';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAdmin = localStorage.getItem('adminEmail');
@@ -25,6 +26,7 @@ export default function App() {
           <Route index element={<Dashboard />} />
           <Route path="employees" element={<Employees />} />
           <Route path="shifts" element={<Shifts />} />
+          <Route path="attendance" element={<Attendance />} />
           <Route path="leaves" element={<Leaves />} />
           <Route path="settings" element={<Settings />} />
         </Route>

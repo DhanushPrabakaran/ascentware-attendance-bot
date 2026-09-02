@@ -124,6 +124,11 @@ export class AdminController {
     return this.adminService.getLeaves();
   }
 
+  @Get('attendances')
+  getAttendances() {
+    return this.adminService.getAttendances();
+  }
+
   @Post('leaves')
   async applyLeave(@Body() data: { teamsUserId: string; reason: string }) {
     const emp = await this.prisma.employee.findUnique({

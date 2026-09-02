@@ -1,6 +1,6 @@
 import React from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
-import { Users, Clock, Settings, LogOut, LayoutDashboard, CalendarOff } from 'lucide-react';
+import { Users, Clock, Settings, LogOut, LayoutDashboard, CalendarOff, FileText } from 'lucide-react';
 
 export default function Layout() {
   const navigate = useNavigate();
@@ -15,6 +15,7 @@ export default function Layout() {
     { name: 'Dashboard', path: '/', icon: <LayoutDashboard size={20} /> },
     { name: 'Employees', path: '/employees', icon: <Users size={20} /> },
     { name: 'Shifts', path: '/shifts', icon: <Clock size={20} /> },
+    { name: 'Attendance', path: '/attendance', icon: <FileText size={20} /> },
     { name: 'Leaves', path: '/leaves', icon: <CalendarOff size={20} /> },
     { name: 'Settings', path: '/settings', icon: <Settings size={20} /> },
   ];

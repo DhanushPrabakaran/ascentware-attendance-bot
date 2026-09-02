@@ -69,4 +69,11 @@ export class AdminService {
       orderBy: { date: 'desc' },
     });
   }
+
+  async getAttendances() {
+    return this.prisma.attendance.findMany({
+      include: { employee: true, tasks: true, breaks: true },
+      orderBy: { date: 'desc' },
+    });
+  }
 }
