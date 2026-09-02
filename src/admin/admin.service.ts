@@ -72,7 +72,7 @@ export class AdminService {
 
   async getAttendances() {
     return this.prisma.attendance.findMany({
-      include: { employee: true, tasks: true, breaks: true },
+      include: { employee: true, dailyTasks: true, breaks: true },
       orderBy: { date: 'desc' },
     });
   }

@@ -6,7 +6,7 @@ interface AttendanceRecord {
   checkIn: string;
   checkOut: string | null;
   status: string;
-  workingHours: number;
+  workingMinutes: number;
   employee: { name: string; email: string };
 }
 
@@ -52,7 +52,7 @@ export default function Attendance() {
                     </div>
                     {a.checkOut && (
                       <div className="text-gray-500">
-                        <span className="font-semibold">Hours:</span> {(a.workingHours / 60).toFixed(1)}h
+                        <span className="font-semibold">Hours:</span> {(a.workingMinutes / 60).toFixed(1)}h
                       </div>
                     )}
                   </div>
