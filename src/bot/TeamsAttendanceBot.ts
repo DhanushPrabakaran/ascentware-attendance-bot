@@ -116,6 +116,7 @@ export class TeamsAttendanceBot {
         if (result.markConsumed && replyToId) {
           TeamsAttendanceBot.markConsumed(replyToId);
         }
+        return result;
       } catch (error: any) {
         console.error(error);
         let msg = error.message;
@@ -129,12 +130,15 @@ export class TeamsAttendanceBot {
               ? JSON.stringify(error.response.data.error)
               : error.response.data.error;
         }
-        await context.sendActivity(MessageFactory.text(`Error: ${msg}`));
+        await context.sendActivity(
+          MessageFactory.text(`An error occurred: ${msg}`),
+        );
       } finally {
         if (replyToId) {
           TeamsAttendanceBot.processingIds.delete(replyToId);
         }
       }
+      return null;
     };
 
     app.onMessage(/.*/, async (context, state) => {
@@ -156,10 +160,15 @@ export class TeamsAttendanceBot {
       if (!(await this.ensureAuthenticated(context as any))) return;
 
       if (context.activity.name === 'adaptiveCard/action') {
-        const value: any = context.activity.value;
+        const payload: any = context.activity.value;
+        const data = payload?.action?.data;
         const replyToId = context.activity.replyToId;
-        if (value && value.action) {
-          await handleAction(context as any, value, replyToId);
+        if (data && data.action) {
+          await handleAction(context as any, data, replyToId);
+          await context.sendActivity({
+            type: 'invokeResponse',
+            value: { status: 200 },
+          });
         }
       }
     });

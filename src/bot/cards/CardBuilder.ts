@@ -21,12 +21,12 @@ export class CardBuilder {
       ],
       actions: [
         {
-          type: 'Action.Submit',
+          type: 'Action.Execute',
           title: 'Check In',
           data: { action: 'checkIn' },
         },
         {
-          type: 'Action.Submit',
+          type: 'Action.Execute',
           title: 'Apply Leave',
           data: { action: 'applyLeave' },
         },
@@ -121,13 +121,13 @@ export class CardBuilder {
       body: body,
       actions: [
         {
-          type: 'Action.Submit',
+          type: 'Action.Execute',
           title: 'Submit Leave Request',
           style: 'positive',
           data: { action: 'submitLeave' },
         },
         {
-          type: 'Action.Submit',
+          type: 'Action.Execute',
           title: 'Cancel',
           style: 'destructive',
           data: { action: 'cancelLeave' },
@@ -152,12 +152,12 @@ export class CardBuilder {
       ],
       actions: [
         {
-          type: 'Action.Submit',
+          type: 'Action.Execute',
           title: 'Start Break',
           data: { action: 'startBreak', attendanceId: attendanceId },
         },
         {
-          type: 'Action.Submit',
+          type: 'Action.Execute',
           title: 'Check Out',
           data: { action: 'checkOut', attendanceId: attendanceId },
         },
@@ -181,7 +181,7 @@ export class CardBuilder {
       ],
       actions: [
         {
-          type: 'Action.Submit',
+          type: 'Action.Execute',
           title: 'Resume Work',
           data: { action: 'endBreak', attendanceId: attendanceId },
         },

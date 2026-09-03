@@ -237,13 +237,13 @@ export class PlanTasksCard {
       body: body,
       actions: [
         {
-          type: 'Action.Submit',
+          type: 'Action.Execute',
           title: 'Save Plan & Start Working',
           style: 'positive',
           data: { action: 'saveAllTasks', attendanceId: attendanceId },
         },
         {
-          type: 'Action.Submit',
+          type: 'Action.Execute',
           title: 'Cancel',
           style: 'destructive',
           data: { action: 'cancelPlanTasks', attendanceId: attendanceId },

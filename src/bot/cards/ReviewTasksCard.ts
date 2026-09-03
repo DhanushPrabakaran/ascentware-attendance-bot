@@ -22,7 +22,7 @@ export class ReviewTasksCard {
         ],
         actions: [
           {
-            type: 'Action.Submit',
+            type: 'Action.Execute',
             title: 'Clock Out',
             style: 'default',
             data: { action: 'submitReview', attendanceId: attendanceId },
@@ -168,7 +168,7 @@ export class ReviewTasksCard {
       body: body,
       actions: [
         {
-          type: 'Action.Submit',
+          type: 'Action.Execute',
           title: 'Submit Review & Check Out',
           style: 'default',
           data: { action: 'submitReview', attendanceId: attendanceId },
