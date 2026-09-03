@@ -23,18 +23,18 @@ export default function Leaves() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-3xl font-bold text-white tracking-tight">Leave Requests</h2>
-        <p className="mt-2 text-sm text-white/60 font-medium">View all submitted leave applications.</p>
+        <h2 className="text-3xl font-bold text-secondary tracking-tight">Leave Requests</h2>
+        <p className="mt-2 text-sm text-secondary/60 font-medium">View all submitted leave applications.</p>
       </div>
 
-      <div className="bg-surface border border-borderBase rounded-xl overflow-hidden shadow-2xl shadow-black/20">
+      <div className="bg-surface border border-borderBase rounded-xl overflow-hidden shadow-2xl shadow-background/50">
         <ul className="divide-y divide-borderBase">
           {leaves.map((l) => (
             <li key={l.id} className="p-6 hover:bg-white/5 transition-colors">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-semibold text-white">{l.employee.name} <span className="text-white/50 font-normal text-xs ml-1">({l.employee.email})</span></h3>
-                  <p className="text-white/80 mt-3 text-sm bg-tertiary p-4 rounded-lg border border-borderBase shadow-inner whitespace-pre-wrap">
+                  <h3 className="text-sm font-semibold text-secondary">{l.employee.name} <span className="text-secondary/50 font-normal text-xs ml-1">({l.employee.email})</span></h3>
+                  <p className="text-secondary/80 mt-3 text-sm bg-surfaceHover p-4 rounded-lg border border-borderBase shadow-inner whitespace-pre-wrap">
                     {l.reason}
                   </p>
                 </div>
@@ -42,10 +42,10 @@ export default function Leaves() {
                   <p className={`text-xs font-semibold tracking-wider uppercase px-2.5 py-1 rounded-full border inline-block
                     ${l.status === 'APPROVED' ? 'bg-primary/10 text-primary border-primary/20' : 
                       l.status === 'REJECTED' ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' : 
-                      'bg-white/10 text-white border-white/20'}`}>
+                      'bg-white/10 text-secondary border-white/20'}`}>
                     {l.status}
                   </p>
-                  <p className="text-xs text-white/40 mt-3 font-medium">
+                  <p className="text-xs text-secondary/40 mt-3 font-medium">
                     Applied: {new Date(l.date).toLocaleString()}
                   </p>
                 </div>
@@ -53,7 +53,7 @@ export default function Leaves() {
             </li>
           ))}
           {leaves.length === 0 && (
-            <li className="p-12 text-center text-white/40 text-sm font-medium">No leaves have been requested yet.</li>
+            <li className="p-12 text-center text-secondary/40 text-sm font-medium">No leaves have been requested yet.</li>
           )}
         </ul>
       </div>

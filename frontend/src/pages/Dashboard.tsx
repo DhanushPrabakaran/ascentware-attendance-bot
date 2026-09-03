@@ -36,20 +36,20 @@ export default function Dashboard() {
   return (
     <div className="space-y-8">
       <div>
-        <h2 className="text-3xl font-bold text-white tracking-tight">Live Operations</h2>
-        <p className="mt-2 text-sm text-white/60 font-medium">Real-time attendance and workforce status.</p>
+        <h2 className="text-3xl font-bold text-secondary tracking-tight">Live Operations</h2>
+        <p className="mt-2 text-sm text-secondary/60 font-medium">Real-time attendance and workforce status.</p>
       </div>
 
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard title="Active Now" value={online} icon={<Activity size={24} />} color="text-primary" />
         <StatCard title="On Break" value={onBreak} icon={<Coffee size={24} />} color="text-yellow-400" />
-        <StatCard title="Checked Out" value={checkedOut} icon={<LogOut size={24} />} color="text-white/50" />
-        <StatCard title="Total Employees" value={stats.employees} icon={<Users size={24} />} color="text-white" />
+        <StatCard title="Checked Out" value={checkedOut} icon={<LogOut size={24} />} color="text-secondary/50" />
+        <StatCard title="Total Employees" value={stats.employees} icon={<Users size={24} />} color="text-secondary" />
       </div>
 
       <div className="bg-surface border border-borderBase rounded-xl overflow-hidden">
         <div className="p-6 border-b border-borderBase flex justify-between items-center">
-          <h3 className="text-lg font-semibold text-white">Recent Activity</h3>
+          <h3 className="text-lg font-semibold text-secondary">Recent Activity</h3>
           <Link to="/attendance" className="text-sm font-semibold text-primary hover:text-primaryHover transition-colors">
             View full log &rarr;
           </Link>
@@ -59,27 +59,27 @@ export default function Dashboard() {
             attendances.slice(0, 5).map((a) => (
               <li key={a.id} className="p-4 hover:bg-white/5 transition-colors flex items-center justify-between">
                 <div className="flex items-center space-x-4">
-                  <div className="w-10 h-10 rounded bg-tertiary flex items-center justify-center text-primary font-bold">
+                  <div className="w-10 h-10 rounded bg-surfaceHover flex items-center justify-center text-primary font-bold">
                     {a.employee.name.charAt(0)}
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-white">{a.employee.name}</p>
-                    <p className="text-xs text-white/50 font-medium">{a.employee.email}</p>
+                    <p className="text-sm font-semibold text-secondary">{a.employee.name}</p>
+                    <p className="text-xs text-secondary/50 font-medium">{a.employee.email}</p>
                   </div>
                 </div>
                 <div className="text-right">
                   <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wider
-                    ${a.checkOut ? 'bg-white/10 text-white/50 border border-white/10' : 
+                    ${a.checkOut ? 'bg-white/10 text-secondary/50 border border-white/10' : 
                       a.status === 'ON_BREAK' ? 'bg-yellow-400/10 text-yellow-400 border border-yellow-400/20' : 
                       'bg-primary/10 text-primary border border-primary/20'}`}>
                     {a.checkOut ? 'Left' : a.status === 'ON_BREAK' ? 'Break' : 'Active'}
                   </span>
-                  <p className="text-xs text-white/40 mt-1">In: {new Date(a.checkIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                  <p className="text-xs text-secondary/40 mt-1">In: {new Date(a.checkIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                 </div>
               </li>
             ))
           ) : (
-            <li className="p-8 text-center text-white/40 text-sm font-medium">No activity today yet.</li>
+            <li className="p-8 text-center text-secondary/40 text-sm font-medium">No activity today yet.</li>
           )}
         </ul>
       </div>
@@ -93,8 +93,8 @@ function StatCard({ title, value, icon, color }: { title: string, value: number,
       <div className={`absolute top-0 right-0 -mt-4 -mr-4 p-8 rounded-full bg-white/5 group-hover:bg-primary/10 transition-colors ${color}`}>
         {icon}
       </div>
-      <p className="text-sm font-medium text-white/60 relative z-10">{title}</p>
-      <p className="text-4xl font-bold text-white mt-2 tracking-tight relative z-10">{value}</p>
+      <p className="text-sm font-medium text-secondary/60 relative z-10">{title}</p>
+      <p className="text-4xl font-bold text-secondary mt-2 tracking-tight relative z-10">{value}</p>
     </div>
   );
 }

@@ -6,7 +6,7 @@
 
 body {
   margin: 0;
-  @apply bg-background text-white font-sans;
+  @apply bg-background text-secondary font-sans;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
