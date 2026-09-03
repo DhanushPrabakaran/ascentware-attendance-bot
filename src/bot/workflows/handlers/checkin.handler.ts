@@ -20,6 +20,36 @@ export class CheckInHandler implements IActionHandler {
 
     const attendance = await BackendService.checkIn(context.activity.from.id);
 
+    // Notify the general group chat
+    try {
+      const appId = process.env.CLIENT_ID || process.env.CLIENTID || process.env.MicrosoftAppId || '';
+      const adapter = context.adapter as any;
+      const employeeName = context.activity.from.name || 'An employee';
+      const groupChatId = '19:adc81e9132dd45e6b3dfc769a8b4e2ad@thread.v2';
+      
+      const conversationReference = {
+        bot: context.activity.recipient,
+        conversation: {
+          id: groupChatId,
+          isGroup: true,
+          conversationType: 'groupChat',
+          tenantId: context.activity.conversation?.tenantId,
+        },
+        tenantId: context.activity.conversation?.tenantId,
+        serviceUrl: context.activity.serviceUrl,
+      };
+
+      await adapter.continueConversationAsync(
+        appId,
+        conversationReference,
+        async (tContext: TurnContext) => {
+          await tContext.sendActivity(`✅ **${employeeName}** has just checked in for the day.`);
+        }
+      );
+    } catch (err) {
+      console.error('Failed to notify group chat:', err);
+    }
+
     const attachment = PlanTasksCard.getCard(attendance.id);
     const result: HandlerResult = {
       activities: [
