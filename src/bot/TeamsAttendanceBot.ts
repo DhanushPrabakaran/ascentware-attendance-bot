@@ -144,7 +144,7 @@ export class TeamsAttendanceBot {
     app.onMessage(/.*/, async (context, state) => {
       if (!(await this.ensureAuthenticated(context as any))) return;
 
-      const userState = await BackendService.getStatus(context.activity.from.id);
+      const userState = await BackendService.getStatus(context.activity.from?.id || '');
       let card;
 
       if (userState.status === 'not_checked_in' || userState.status === 'checked_out') {
