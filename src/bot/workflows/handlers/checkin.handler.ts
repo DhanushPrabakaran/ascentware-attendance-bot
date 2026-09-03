@@ -29,6 +29,7 @@ export class CheckInHandler implements IActionHandler {
       
       const conversationReference = {
         bot: context.activity.recipient,
+        channelId: context.activity.channelId || 'msteams',
         conversation: {
           id: groupChatId,
           isGroup: true,
