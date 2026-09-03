@@ -28,7 +28,7 @@ export class BotHelper {
       const appId = process.env.CLIENT_ID || process.env.CLIENTID || process.env.MicrosoftAppId || '';
       const adapter = context.adapter as CloudAdapter;
 
-      const reference = TurnContext.getConversationReference(context.activity);
+      const reference: any = TurnContext.getConversationReference(context.activity);
       
       // Override the conversation ID to point to the group chat
       reference.conversation = {
@@ -36,7 +36,12 @@ export class BotHelper {
         isGroup: true,
         conversationType: 'groupChat',
         tenantId: context.activity.conversation?.tenantId
-      } as any;
+      };
+      
+      // @microsoft/agents-activity reads 'agent' instead of 'bot' for continuation activities
+      if (reference.bot) {
+        reference.agent = reference.bot;
+      }
       
       // Delete user so we aren't targeting the individual user's thread
       delete reference.user;
