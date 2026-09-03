@@ -7,6 +7,7 @@ import {
 import { BackendService } from '../../services/BackendService';
 import { CardBuilder } from '../../cards/CardBuilder';
 import { PlanTasksCard } from '../../cards/PlanTasksCard';
+import { BotHelper } from '../../BotHelper';
 
 @Injectable()
 export class CheckInHandler implements IActionHandler {
@@ -19,38 +20,8 @@ export class CheckInHandler implements IActionHandler {
     const reason = value.reason || '';
 
     const attendance = await BackendService.checkIn(context.activity.from.id);
-
-    // Notify the general group chat
-    try {
-      const appId = process.env.CLIENT_ID || process.env.CLIENTID || process.env.MicrosoftAppId || '';
-      const adapter = context.adapter as any;
-      const employeeName = context.activity.from.name || 'An employee';
-      const groupChatId = '19:adc81e9132dd45e6b3dfc769a8b4e2ad@thread.v2';
-      
-      const conversationReference = {
-        agent: context.activity.recipient || { id: `28:${appId}` },
-        channelId: context.activity.channelId || 'msteams',
-        conversation: {
-          id: groupChatId,
-          isGroup: true,
-          conversationType: 'groupChat',
-          tenantId: context.activity.conversation?.tenantId,
-        },
-        tenantId: context.activity.conversation?.tenantId,
-        serviceUrl: context.activity.serviceUrl,
-      };
-
-      await adapter.continueConversation(
-        appId,
-        conversationReference,
-        async (tContext: TurnContext) => {
-          await tContext.sendActivity(`✅ **${employeeName}** has just checked in for the day.`);
-        }
-      );
-    } catch (err: any) {
-      console.error('Failed to notify group chat:', err);
-      await context.sendActivity(`Failed to notify group chat: ${err.message || err.toString()}`);
-    }
+    const employeeName = context.activity.from.name || 'An employee';
+    await BotHelper.notifyGroupChat(context, `✅ **${employeeName}** has just checked in for the day.`);
 
     const attachment = PlanTasksCard.getCard(attendance.id);
     const result: HandlerResult = {

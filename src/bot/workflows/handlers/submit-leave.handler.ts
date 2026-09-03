@@ -30,20 +30,23 @@ export class SubmitLeaveHandler implements IActionHandler {
     }
 
     try {
-      await BackendService.applyLeave(context.activity.from.id, `[${leaveType}] ${startDate} to ${endDate}: ${reason}`);
+      const leave = await BackendService.applyLeave(context.activity.from.id, `[${leaveType}] ${startDate} to ${endDate}: ${reason}`);
 
       // Notify managers
       try {
         const managers = await BackendService.getManagers(context.activity.from.id);
-        const employeeName = context.activity.from.name || 'An employee';
-        const appId = process.env.CLIENT_ID || process.env.CLIENTID || process.env.MicrosoftAppId || '';
         
-        for (const manager of managers) {
-          if (manager.teamsUserId) {
-            const adapter = context.adapter as any;
+        if (managers && managers.length > 0) {
+          const appId = process.env.CLIENT_ID || process.env.CLIENTID || process.env.MicrosoftAppId || '';
+          const adapter = context.adapter as any;
+          const employeeName = context.activity.from.name || 'An employee';
+
+          for (const manager of managers) {
+            if (!manager.teamsUserId) continue;
+
             await adapter.createConversationAsync(
               appId,
-              context.activity.channelId,
+              'msteams',
               context.activity.serviceUrl,
               '',
               {
@@ -53,9 +56,12 @@ export class SubmitLeaveHandler implements IActionHandler {
                 tenantId: context.activity.conversation?.tenantId,
               },
               async (tContext: TurnContext) => {
-                await tContext.sendActivity(
-                  `${employeeName} has submitted a leave request:\n\n**Type**: ${leaveType}\n**Dates**: ${startDate} to ${endDate}\n**Reason**: ${reason}`
-                );
+                await tContext.sendActivity({
+                  type: 'message',
+                  attachments: [
+                    CardBuilder.getLeaveApprovalCard(leave.id, employeeName, leaveType, startDate, endDate, reason)
+                  ]
+                } as any);
               }
             );
           }

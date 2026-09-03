@@ -5,6 +5,35 @@ import { PrismaService } from '../prisma/prisma.service';
 export class AttendanceService {
   constructor(private prisma: PrismaService) {}
 
+  async getStatus(teamsUserId: string) {
+    const employee = await this.prisma.employee.findUnique({
+      where: { teamsUserId },
+    });
+    if (!employee) return { status: 'not_checked_in', employeeId: null, attendanceId: null };
+
+    // Get the most recent attendance for today (or just the most recent overall)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const attendance = await this.prisma.attendance.findFirst({
+      where: {
+        employeeId: employee.id,
+        checkIn: { gte: today },
+      },
+      orderBy: { checkIn: 'desc' },
+    });
+
+    if (!attendance) {
+      return { status: 'not_checked_in', employeeId: employee.id, attendanceId: null };
+    }
+
+    return {
+      status: attendance.status,
+      employeeId: employee.id,
+      attendanceId: attendance.id,
+    };
+  }
+
   async checkIn(teamsUserId: string) {
     let employee = await this.prisma.employee.findUnique({
       where: { teamsUserId },

@@ -150,11 +150,16 @@ export class CardBuilder {
       body: [
         {
           type: 'TextBlock',
-          text: 'Working',
+          text: 'Active Session',
           weight: 'Bolder',
           size: 'Medium',
           color: 'Good',
         },
+        {
+          type: 'TextBlock',
+          text: 'Status: Working',
+          isSubtle: true,
+        }
       ],
       actions: [
         {
@@ -166,6 +171,22 @@ export class CardBuilder {
           type: 'Action.Execute',
           title: 'Check Out',
           data: { action: 'checkOut', attendanceId: attendanceId },
+        },
+        {
+          type: 'Action.Execute',
+          title: 'Add / Edit Plan',
+          data: { action: 'editPlan', attendanceId: attendanceId },
+        },
+        {
+          type: 'Action.Execute',
+          title: 'Apply Leave',
+          data: { action: 'applyLeave' },
+        },
+        {
+          type: 'Action.Execute',
+          title: 'Cancel',
+          style: 'destructive',
+          data: { action: 'cancelProcess' },
         },
       ],
     });
@@ -212,6 +233,46 @@ export class CardBuilder {
           type: 'TextBlock',
           text: message,
           isSubtle: true,
+        },
+      ],
+    });
+  }
+
+  static getLeaveApprovalCard(leaveId: string, employeeName: string, leaveType: string, startDate: string, endDate: string, reason: string) {
+    return CardFactory.adaptiveCard({
+      $schema: 'http://adaptivecards.io/schemas/adaptive-card.json',
+      type: 'AdaptiveCard',
+      version: '1.3',
+      body: [
+        {
+          type: 'TextBlock',
+          text: 'Leave Request Pending',
+          weight: 'Bolder',
+          size: 'Medium',
+          color: 'Warning',
+        },
+        {
+          type: 'FactSet',
+          facts: [
+            { title: 'Employee:', value: employeeName },
+            { title: 'Type:', value: leaveType },
+            { title: 'Dates:', value: `${startDate} to ${endDate}` },
+            { title: 'Reason:', value: reason },
+          ]
+        }
+      ],
+      actions: [
+        {
+          type: 'Action.Execute',
+          title: 'Approve',
+          style: 'positive',
+          data: { action: 'approveLeave', leaveId: leaveId },
+        },
+        {
+          type: 'Action.Execute',
+          title: 'Reject',
+          style: 'destructive',
+          data: { action: 'rejectLeave', leaveId: leaveId },
         },
       ],
     });

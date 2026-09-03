@@ -1,9 +1,14 @@
-import { Controller, Post, Body } from '@nestjs/common';
+import { Controller, Post, Body, Get, Param } from '@nestjs/common';
 import { AttendanceService } from './attendance.service';
 
 @Controller('api/v1/attendance')
 export class AttendanceController {
   constructor(private readonly attendanceService: AttendanceService) {}
+
+  @Get('status/:teamsUserId')
+  getStatus(@Param('teamsUserId') teamsUserId: string) {
+    return this.attendanceService.getStatus(teamsUserId);
+  }
 
   @Post('check-in')
   checkIn(@Body('employeeId') employeeId: string) {

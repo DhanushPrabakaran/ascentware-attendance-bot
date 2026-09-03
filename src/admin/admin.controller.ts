@@ -139,4 +139,20 @@ export class AdminController {
       data: { employeeId: emp.id, reason: data.reason },
     });
   }
+
+  @Get('leaves/:id')
+  async getLeave(@Param('id') id: string) {
+    return this.prisma.leave.findUnique({
+      where: { id },
+      include: { employee: true }
+    });
+  }
+
+  @Put('leaves/:id/status')
+  async updateLeaveStatus(@Param('id') id: string, @Body('status') status: string) {
+    return this.prisma.leave.update({
+      where: { id },
+      data: { status }
+    });
+  }
 }

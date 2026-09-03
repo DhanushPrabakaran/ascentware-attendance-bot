@@ -6,6 +6,7 @@ import {
 } from '../interfaces/action-handler.interface';
 import { BackendService } from '../../services/BackendService';
 import { CardBuilder } from '../../cards/CardBuilder';
+import { BotHelper } from '../../BotHelper';
 
 @Injectable()
 export class SubmitReviewHandler implements IActionHandler {
@@ -32,6 +33,9 @@ export class SubmitReviewHandler implements IActionHandler {
     }
 
     const result = await BackendService.checkOut(value.attendanceId);
+    
+    const employeeName = context.activity.from.name || 'An employee';
+    await BotHelper.notifyGroupChat(context, `👋 **${employeeName}** has checked out for the day.\n*Working Time: ${result.workingMinutes} mins | Break Time: ${result.breakMinutes} mins*`);
 
     const checkedOutMessage = MessageFactory.text(
       'You are checked out for the day. See you tomorrow!',

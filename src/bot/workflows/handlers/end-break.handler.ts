@@ -6,6 +6,7 @@ import {
 } from '../interfaces/action-handler.interface';
 import { BackendService } from '../../services/BackendService';
 import { CardBuilder } from '../../cards/CardBuilder';
+import { BotHelper } from '../../BotHelper';
 
 @Injectable()
 export class EndBreakHandler implements IActionHandler {
@@ -15,6 +16,9 @@ export class EndBreakHandler implements IActionHandler {
     replyToId?: string,
   ): Promise<HandlerResult> {
     await BackendService.endBreak(value.attendanceId);
+    
+    const employeeName = context.activity.from.name || 'An employee';
+    await BotHelper.notifyGroupChat(context, `💻 **${employeeName}** is back from break.`);
 
     return {
       activities: [

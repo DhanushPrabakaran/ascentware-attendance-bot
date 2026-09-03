@@ -6,6 +6,9 @@ import { WorkflowEngine } from './workflows/workflow.engine';
 import { CheckInHandler } from './workflows/handlers/checkin.handler';
 import { ApplyLeaveHandler } from './workflows/handlers/apply-leave.handler';
 import { SubmitLeaveHandler } from './workflows/handlers/submit-leave.handler';
+import { EditPlanHandler } from './workflows/handlers/edit-plan.handler';
+import { ApproveLeaveHandler } from './workflows/handlers/approve-leave.handler';
+import { RejectLeaveHandler } from './workflows/handlers/reject-leave.handler';
 import { CancelLeaveHandler } from './workflows/handlers/cancel-leave.handler';
 import { CancelProcessHandler } from './workflows/handlers/cancel-process.handler';
 import { CancelPlanTasksHandler } from './workflows/handlers/cancel-plan-tasks.handler';
@@ -23,6 +26,9 @@ import { SubmitReviewHandler } from './workflows/handlers/submit-review.handler'
     CheckInHandler,
     ApplyLeaveHandler,
     SubmitLeaveHandler,
+    EditPlanHandler,
+    ApproveLeaveHandler,
+    RejectLeaveHandler,
     CancelLeaveHandler,
     CancelProcessHandler,
     CancelPlanTasksHandler,

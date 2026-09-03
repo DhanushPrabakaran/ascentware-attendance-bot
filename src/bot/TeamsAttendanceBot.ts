@@ -144,10 +144,21 @@ export class TeamsAttendanceBot {
     app.onMessage(/.*/, async (context, state) => {
       if (!(await this.ensureAuthenticated(context as any))) return;
 
-      // Any initiator is fine! Send the welcome card for any text message.
+      const userState = await BackendService.getStatus(context.activity.from.id);
+      let card;
+
+      if (userState.status === 'not_checked_in' || userState.status === 'checked_out') {
+        card = CardBuilder.getCheckInCard();
+      } else if (userState.status === 'on_break') {
+        card = CardBuilder.getOnBreakCard(userState.attendanceId);
+      } else {
+        // They are checked_in
+        card = CardBuilder.getWorkingCard(userState.attendanceId);
+      }
+
       const response = await context.sendActivity({
         type: 'message',
-        attachments: [CardBuilder.getCheckInCard()],
+        attachments: [card],
       } as any);
 
       if (response && response.id) {

@@ -3,6 +3,15 @@ import axios from 'axios';
 const API_URL = 'http://localhost:' + (process.env.PORT || 3000) + '/api/v1';
 
 export class BackendService {
+  static async getStatus(teamsUserId: string) {
+    try {
+      const res = await axios.get(API_URL + '/attendance/status/' + teamsUserId);
+      return res.data;
+    } catch (e) {
+      return { status: 'not_checked_in' };
+    }
+  }
+
   static async getEmployeeByTeamsUserId(teamsUserId: string) {
     try {
       const res = await axios.get(
@@ -47,6 +56,18 @@ export class BackendService {
     const res = await axios.post(API_URL + '/admin/leaves', {
       teamsUserId,
       reason,
+    });
+    return res.data;
+  }
+
+  static async getLeave(id: string) {
+    const res = await axios.get(API_URL + '/admin/leaves/' + id);
+    return res.data;
+  }
+
+  static async updateLeaveStatus(id: string, status: string) {
+    const res = await axios.put(API_URL + '/admin/leaves/' + id + '/status', {
+      status,
     });
     return res.data;
   }

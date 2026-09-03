@@ -12,6 +12,18 @@
       "handler": "SubmitLeaveHandler",
       "description": "Processes a submitted leave application."
     },
+    "editPlan": {
+      "handler": "EditPlanHandler",
+      "description": "Edits the task plan."
+    },
+    "approveLeave": {
+      "handler": "ApproveLeaveHandler",
+      "description": "Approves a leave request."
+    },
+    "rejectLeave": {
+      "handler": "RejectLeaveHandler",
+      "description": "Rejects a leave request."
+    },
     "cancelLeave": {
       "handler": "CancelLeaveHandler",
       "description": "Cancels leave application and goes back to check-in."
