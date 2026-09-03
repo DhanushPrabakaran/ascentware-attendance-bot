@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Calendar as CalendarIcon, Filter, Search } from 'lucide-react';
 
 interface AttendanceRecord {
@@ -8,7 +9,8 @@ interface AttendanceRecord {
   checkOut: string | null;
   status: string;
   workingMinutes: number;
-  employee: { name: string; email: string };
+  employeeId: string;
+  employee: { id: string; name: string; email: string };
 }
 
 export default function Attendance() {
@@ -41,17 +43,17 @@ export default function Attendance() {
             <input type="text" placeholder="Search employee..." 
               className="bg-surface border border-borderBase rounded-lg pl-9 pr-4 py-2 text-sm text-secondary placeholder-white/40 focus:outline-none focus:border-primary/50 transition-colors" />
           </div>
-          <button className="bg-surface border border-borderBase p-2 rounded-lg text-secondary/70 hover:text-secondary hover:bg-white/5 transition-colors">
+          <button className="bg-surface border border-borderBase p-2 rounded-lg text-secondary/70 hover:text-secondary hover:bg-surfaceHover transition-colors">
             <Filter className="h-5 w-5" />
           </button>
         </div>
       </div>
 
-      <div className="bg-surface border border-borderBase rounded-xl overflow-hidden shadow-2xl shadow-background/50">
+      <div className="bg-surface border border-borderBase rounded-xl overflow-hidden shadow-xl shadow-background/50">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="border-b border-borderBase bg-white/5">
+              <tr className="border-b border-borderBase bg-surfaceHover/30">
                 <th className="py-4 px-6 text-xs font-semibold text-secondary/60 uppercase tracking-wider">Employee</th>
                 <th className="py-4 px-6 text-xs font-semibold text-secondary/60 uppercase tracking-wider">Date</th>
                 <th className="py-4 px-6 text-xs font-semibold text-secondary/60 uppercase tracking-wider">Status</th>
@@ -62,15 +64,15 @@ export default function Attendance() {
             </thead>
             <tbody className="divide-y divide-borderBase">
               {attendances.map((a) => (
-                <tr key={a.id} className="hover:bg-white/5 transition-colors">
+                <tr key={a.id} className="hover:bg-surfaceHover/50 transition-colors">
                   <td className="py-4 px-6 whitespace-nowrap">
                     <div className="flex items-center">
                       <div className="w-8 h-8 rounded bg-surfaceHover text-primary flex items-center justify-center font-bold text-sm mr-3">
                         {a.employee.name.charAt(0)}
                       </div>
                       <div>
-                        <div className="text-sm font-semibold text-secondary">{a.employee.name}</div>
-                        <div className="text-xs text-secondary/50">{a.employee.email}</div>
+                        <Link to={`/employees/${a.employee.id || a.employeeId}`} className="text-sm font-semibold text-primary hover:underline">{a.employee.name}</Link>
+                        <div className="text-xs text-secondary/50 mt-0.5">{a.employee.email}</div>
                       </div>
                     </div>
                   </td>

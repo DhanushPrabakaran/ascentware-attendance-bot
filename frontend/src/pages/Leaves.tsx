@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 
 interface Leave {
   id: string;
   date: string;
   reason: string;
   status: string;
-  employee: { name: string; email: string };
+  employeeId: string;
+  employee: { id: string; name: string; email: string };
 }
 
 export default function Leaves() {
@@ -27,26 +29,34 @@ export default function Leaves() {
         <p className="mt-2 text-sm text-secondary/60 font-medium">View all submitted leave applications.</p>
       </div>
 
-      <div className="bg-surface border border-borderBase rounded-xl overflow-hidden shadow-2xl shadow-background/50">
+      <div className="bg-surface border border-borderBase rounded-xl overflow-hidden shadow-xl shadow-background/50">
         <ul className="divide-y divide-borderBase">
           {leaves.map((l) => (
-            <li key={l.id} className="p-6 hover:bg-white/5 transition-colors">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-semibold text-secondary">{l.employee.name} <span className="text-secondary/50 font-normal text-xs ml-1">({l.employee.email})</span></h3>
-                  <p className="text-secondary/80 mt-3 text-sm bg-surfaceHover p-4 rounded-lg border border-borderBase shadow-inner whitespace-pre-wrap">
-                    {l.reason}
-                  </p>
+            <li key={l.id} className="p-6 hover:bg-surfaceHover/50 transition-colors">
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-6">
+                <div className="flex items-start flex-1">
+                  <div className="w-10 h-10 rounded bg-surfaceHover text-primary flex items-center justify-center font-bold text-sm mr-4 mt-1">
+                    {l.employee.name.charAt(0)}
+                  </div>
+                  <div className="flex-1">
+                    <div className="mb-1">
+                      <Link to={`/employees/${l.employee.id || l.employeeId}`} className="text-sm font-semibold text-primary hover:underline">{l.employee.name}</Link>
+                      <span className="text-secondary/50 font-normal text-xs ml-2">({l.employee.email})</span>
+                    </div>
+                    <p className="text-secondary/80 mt-2 text-sm bg-background p-4 rounded-lg border border-borderBase shadow-inner whitespace-pre-wrap">
+                      {l.reason}
+                    </p>
+                  </div>
                 </div>
-                <div className="mt-4 sm:mt-0 sm:text-right">
-                  <p className={`text-xs font-semibold tracking-wider uppercase px-2.5 py-1 rounded-full border inline-block
+                <div className="sm:text-right shrink-0">
+                  <p className={`text-xs font-semibold tracking-wider uppercase px-3 py-1 rounded-full border inline-block
                     ${l.status === 'APPROVED' ? 'bg-primary/10 text-primary border-primary/20' : 
-                      l.status === 'REJECTED' ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' : 
-                      'bg-white/10 text-secondary border-white/20'}`}>
+                      l.status === 'REJECTED' ? 'bg-red-500/10 text-red-400 border-red-500/20' : 
+                      'bg-surfaceHover text-secondary/80 border-borderBase'}`}>
                     {l.status}
                   </p>
-                  <p className="text-xs text-secondary/40 mt-3 font-medium">
-                    Applied: {new Date(l.date).toLocaleString()}
+                  <p className="text-xs text-secondary/40 mt-3 font-medium flex items-center justify-end">
+                    <span className="mr-1">Applied:</span> {new Date(l.date).toLocaleDateString()}
                   </p>
                 </div>
               </div>
