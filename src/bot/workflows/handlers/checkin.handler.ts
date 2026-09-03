@@ -46,8 +46,9 @@ export class CheckInHandler implements IActionHandler {
           await tContext.sendActivity(`✅ **${employeeName}** has just checked in for the day.`);
         }
       );
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to notify group chat:', err);
+      await context.sendActivity(`Failed to notify group chat: ${err.message || err.toString()}`);
     }
 
     const attachment = PlanTasksCard.getCard(attendance.id);

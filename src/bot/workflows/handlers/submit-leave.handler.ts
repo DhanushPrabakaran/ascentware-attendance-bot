@@ -60,8 +60,9 @@ export class SubmitLeaveHandler implements IActionHandler {
             );
           }
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error('Failed to notify managers:', err);
+        await context.sendActivity(`Failed to notify managers: ${err.message || err.toString()}`);
       }
 
       return {
