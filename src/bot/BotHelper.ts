@@ -24,7 +24,6 @@ export class BotHelper {
       };
 
       await adapter.continueConversation(
-        appId,
         conversationReference as any,
         async (tContext: TurnContext) => {
           await tContext.sendActivity(message);
