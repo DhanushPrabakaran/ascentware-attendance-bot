@@ -41,7 +41,9 @@ export class BotHelper {
       // Delete user so we aren't targeting the individual user's thread
       delete reference.user;
 
-      await adapter.continueConversationAsync(
+      // Bypass TypeScript definitions because @microsoft/agents-hosting's CloudAdapter
+      // expects 3 arguments at runtime, but inherits 2-argument typings from botbuilder.
+      await (adapter as any).continueConversation(
         appId,
         reference as any,
         async (tContext: TurnContext) => {
