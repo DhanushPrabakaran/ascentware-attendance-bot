@@ -48,7 +48,7 @@ export class SubmitLeaveHandler implements IActionHandler {
               appId,
               'msteams',
               context.activity.serviceUrl,
-              '',
+              appId,
               {
                 isGroup: false,
                 agent: context.activity.recipient || { id: `28:${appId}` },
