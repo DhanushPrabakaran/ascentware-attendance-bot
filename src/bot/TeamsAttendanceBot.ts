@@ -168,7 +168,7 @@ export class TeamsAttendanceBot {
           await context.sendActivity({
             type: 'invokeResponse',
             value: { status: 200 },
-          });
+          } as any);
         }
       }
     });
