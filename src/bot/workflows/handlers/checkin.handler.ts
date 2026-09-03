@@ -39,7 +39,7 @@ export class CheckInHandler implements IActionHandler {
         serviceUrl: context.activity.serviceUrl,
       };
 
-      await adapter.continueConversationAsync(
+      await adapter.continueConversation(
         appId,
         conversationReference,
         async (tContext: TurnContext) => {
