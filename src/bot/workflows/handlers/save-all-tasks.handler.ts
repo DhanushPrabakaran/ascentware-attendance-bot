@@ -79,7 +79,7 @@ export class SaveAllTasksHandler implements IActionHandler {
         },
         {
           type: 'message',
-          attachments: [CardBuilder.getWorkingCard(value.attendanceId)],
+          attachments: [CardBuilder.getWorkingCard(value.attendanceId, context.activity.from?.name || 'Bestie')],
         },
       ],
       deleteReplyToId: true,

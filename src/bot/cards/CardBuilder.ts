@@ -1,24 +1,36 @@
 import { CardFactory } from 'botbuilder';
 
 export class CardBuilder {
-  static getCheckInCard() {
+  static getCheckInCard(employeeName: string, quote?: string) {
+    const body: any[] = [
+      {
+        type: 'TextBlock',
+        text: `Ready to slay the day, ${employeeName}? ✨`,
+        weight: 'Bolder',
+        size: 'Medium',
+      },
+      {
+        type: 'TextBlock',
+        text: 'Status: Not Checked In',
+        isSubtle: true,
+      },
+    ];
+
+    if (quote) {
+      body.push({
+        type: 'TextBlock',
+        text: quote,
+        wrap: true,
+        isSubtle: true,
+        spacing: 'Medium',
+      });
+    }
+
     return CardFactory.adaptiveCard({
       $schema: 'http://adaptivecards.io/schemas/adaptive-card.json',
       type: 'AdaptiveCard',
       version: '1.3',
-      body: [
-        {
-          type: 'TextBlock',
-          text: 'Good Morning,',
-          weight: 'Bolder',
-          size: 'Medium',
-        },
-        {
-          type: 'TextBlock',
-          text: 'Status: Not Checked In',
-          isSubtle: true,
-        },
-      ],
+      body: body,
       actions: [
         {
           type: 'Action.Execute',
@@ -142,7 +154,7 @@ export class CardBuilder {
     });
   }
 
-  static getWorkingCard(attendanceId: string) {
+  static getWorkingCard(attendanceId: string, employeeName: string) {
     return CardFactory.adaptiveCard({
       $schema: 'http://adaptivecards.io/schemas/adaptive-card.json',
       type: 'AdaptiveCard',
@@ -150,14 +162,14 @@ export class CardBuilder {
       body: [
         {
           type: 'TextBlock',
-          text: 'Active Session',
+          text: `You're crushing it, ${employeeName}! 🔥`,
           weight: 'Bolder',
           size: 'Medium',
           color: 'Good',
         },
         {
           type: 'TextBlock',
-          text: 'Status: Working',
+          text: 'Status: In the Zone (Working)',
           isSubtle: true,
         }
       ],
@@ -192,7 +204,7 @@ export class CardBuilder {
     });
   }
 
-  static getOnBreakCard(attendanceId: string) {
+  static getOnBreakCard(attendanceId: string, employeeName: string) {
     return CardFactory.adaptiveCard({
       $schema: 'http://adaptivecards.io/schemas/adaptive-card.json',
       type: 'AdaptiveCard',
@@ -200,7 +212,7 @@ export class CardBuilder {
       body: [
         {
           type: 'TextBlock',
-          text: 'On Break',
+          text: `Vibing on break, ${employeeName} ☕`,
           weight: 'Bolder',
           size: 'Medium',
           color: 'Warning',

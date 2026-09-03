@@ -1,7 +1,25 @@
 import { TurnContext, CloudAdapter } from 'botbuilder';
 import { BackendService } from './services/BackendService';
+import axios from 'axios';
 
 export class BotHelper {
+  static async getRandomQuote(): Promise<string> {
+    const quotes = [
+      "No cap, you're gonna crush it today.",
+      "Main character energy activated. Let's get this bread.",
+      "Time to lock in and secure the bag.",
+      "Big brain moves only today.",
+      "You passed the vibe check. Have a great shift!",
+      "Stay hydrated, stay focused, and pop off today.",
+      "We're entering our productive era.",
+      "Grind never stops, but don't forget to touch grass later.",
+      "W work ethic. Let's go!",
+      "Manifesting an easy, breezy workday for you."
+    ];
+    const randomQuote = quotes[Math.floor(Math.random() * quotes.length)];
+    return `_"${randomQuote}"_`;
+  }
+
   static async notifyGroupChat(context: TurnContext, message: string) {
     try {
       const settings = await BackendService.getSettings();

@@ -3,6 +3,7 @@ import { AgentApplication, TurnState } from '@microsoft/agents-hosting';
 import { CardBuilder } from './cards/CardBuilder';
 import { WorkflowEngine } from './workflows/workflow.engine';
 import { BackendService } from './services/BackendService';
+import { BotHelper } from './BotHelper';
 
 export class TeamsAttendanceBot {
   public static activityMap: Map<string, string> = new Map();
@@ -145,15 +146,17 @@ export class TeamsAttendanceBot {
       if (!(await this.ensureAuthenticated(context as any))) return;
 
       const userState = await BackendService.getStatus(context.activity.from?.id || '');
+      const employeeName = context.activity.from?.name || 'Bestie';
+      const quote = await BotHelper.getRandomQuote();
       let card;
 
       if (userState.status === 'not_checked_in' || userState.status === 'checked_out') {
-        card = CardBuilder.getCheckInCard();
+        card = CardBuilder.getCheckInCard(employeeName, quote);
       } else if (userState.status === 'on_break') {
-        card = CardBuilder.getOnBreakCard(userState.attendanceId);
+        card = CardBuilder.getOnBreakCard(userState.attendanceId, employeeName);
       } else {
         // They are checked_in
-        card = CardBuilder.getWorkingCard(userState.attendanceId);
+        card = CardBuilder.getWorkingCard(userState.attendanceId, employeeName);
       }
 
       const response = await context.sendActivity({

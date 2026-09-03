@@ -6,6 +6,8 @@ import {
 } from '../interfaces/action-handler.interface';
 import { CardBuilder } from '../../cards/CardBuilder';
 
+import { BotHelper } from '../../BotHelper';
+
 @Injectable()
 export class CancelLeaveHandler implements IActionHandler {
   async execute(
@@ -13,11 +15,13 @@ export class CancelLeaveHandler implements IActionHandler {
     value: any,
     replyToId?: string,
   ): Promise<HandlerResult> {
+    const employeeName = context.activity.from?.name || 'Bestie';
+    const quote = await BotHelper.getRandomQuote();
     return {
       activities: [
         {
           type: 'message',
-          attachments: [CardBuilder.getCheckInCard()],
+          attachments: [CardBuilder.getCheckInCard(employeeName, quote)],
         },
       ],
       deleteReplyToId: true,

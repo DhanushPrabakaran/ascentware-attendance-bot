@@ -30,7 +30,7 @@ export class EndBreakHandler implements IActionHandler {
         },
         {
           type: 'message',
-          attachments: [CardBuilder.getWorkingCard(value.attendanceId)],
+          attachments: [CardBuilder.getWorkingCard(value.attendanceId, employeeName)],
         },
       ],
       deleteReplyToId: true,
