@@ -1,4 +1,4 @@
-import { TurnContext, MessageFactory } from 'botbuilder';
+import { TurnContext, MessageFactory, TeamsInfo } from 'botbuilder';
 import { AgentApplication, TurnState } from '@microsoft/agents-hosting';
 import { CardBuilder } from './cards/CardBuilder';
 import { WorkflowEngine } from './workflows/workflow.engine';
@@ -36,17 +36,25 @@ export class TeamsAttendanceBot {
     const employee = await BackendService.getEmployeeByTeamsUserId(teamsUserId);
 
     if (!employee) {
-      // The user wants us to use the available details (like aadObjectId and name) 
-      // from the Bot Framework payload to automatically link/create the account
-      // without ever asking them to type an email.
       const aadObjectId = context.activity.from?.aadObjectId;
       const name = context.activity.from?.name || 'Unknown User';
       
-      // Since the database requires an email, we generate a stable internal email
-      // using their aadObjectId or teamsUserId.
-      const generatedEmail = aadObjectId 
+      let generatedEmail = aadObjectId 
         ? `${aadObjectId}@ascentware.internal` 
         : `${teamsUserId.replace(/[^a-zA-Z0-9]/g, '')}@ascentware.internal`;
+
+      try {
+        const member = await TeamsInfo.getMember(context, teamsUserId);
+        if (member) {
+          if (member.email) {
+            generatedEmail = member.email;
+          } else if (member.userPrincipalName) {
+            generatedEmail = member.userPrincipalName;
+          }
+        }
+      } catch (err: any) {
+        console.log('[TeamsBot] Failed to get member email from TeamsInfo', err.message);
+      }
 
       try {
         await BackendService.linkTeamsUserId(generatedEmail, teamsUserId, name);
