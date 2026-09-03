@@ -33,7 +33,7 @@ export class StartBreakHandler implements IActionHandler {
         },
         {
           type: 'message',
-          attachments: [CardBuilder.getOnBreakCard(value.attendanceId)],
+          attachments: [CardBuilder.getOnBreakCard(value.attendanceId, employeeName)],
         },
       ],
       deleteReplyToId: true,
