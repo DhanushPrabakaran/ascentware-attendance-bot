@@ -42,6 +42,7 @@ export class BotHelper {
       delete reference.user;
 
       await adapter.continueConversation(
+        appId,
         reference as any,
         async (tContext: TurnContext) => {
           await tContext.sendActivity(message);
