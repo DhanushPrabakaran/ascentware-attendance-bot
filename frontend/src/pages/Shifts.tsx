@@ -43,8 +43,8 @@ export default function Shifts() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Shifts</h2>
-          <p className="mt-1 text-sm text-gray-500">Define working hours and schedules.</p>
+          <h2 className="text-3xl font-bold text-white tracking-tight">Shifts</h2>
+          <p className="mt-2 text-sm text-white/60 font-medium">Define working hours and schedules.</p>
         </div>
         <button
           onClick={() => { setFormData({name: '', startTime: '', endTime: ''}); setIsModalOpen(true); }}
@@ -55,16 +55,16 @@ export default function Shifts() {
         </button>
       </div>
 
-      <div className="bg-white shadow-sm rounded-xl border border-gray-200 overflow-hidden">
-        <ul className="divide-y divide-gray-200">
+      <div className="bg-surface border border-borderBase rounded-xl overflow-hidden shadow-2xl shadow-black/20">
+        <ul className="divide-y divide-borderBase">
           {shifts.map((shift) => (
-            <li key={shift.id} className="p-6 hover:bg-gray-50 transition-colors">
+            <li key={shift.id} className="p-6 hover:bg-white/5 transition-colors">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-medium text-gray-900">{shift.name}</h3>
+                  <h3 className="text-sm font-semibold text-white">{shift.name}</h3>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm font-medium text-gray-600 bg-gray-100 px-3 py-1 rounded-full border border-gray-200 inline-block shadow-sm">
+                  <p className="text-sm font-medium text-white/80 bg-white/10 px-3 py-1 rounded-full border border-white/20 inline-block shadow-sm">
                     {shift.startTime} - {shift.endTime}
                   </p>
                 </div>
@@ -72,36 +72,36 @@ export default function Shifts() {
             </li>
           ))}
           {shifts.length === 0 && (
-            <li className="p-12 text-center text-gray-500 text-sm">No shifts defined yet.</li>
+            <li className="p-12 text-center text-white/40 text-sm font-medium">No shifts defined yet.</li>
           )}
         </ul>
       </div>
 
       {isModalOpen && (
-        <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
-            <div className="p-6 border-b border-gray-200">
-              <h3 className="text-lg font-bold text-gray-900">Add Shift</h3>
+        <div className="fixed inset-0 bg-neutral/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-tertiary rounded-xl shadow-2xl border border-borderBase w-full max-w-md">
+            <div className="p-6 border-b border-borderBase">
+              <h3 className="text-xl font-bold text-white tracking-tight">Add Shift</h3>
             </div>
             <div className="p-6">
               <form onSubmit={handleSubmit} className="space-y-5">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Shift Name</label>
-                  <input required type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-primary focus:border-primary sm:text-sm" placeholder="e.g. India Morning" />
+                  <label className="block text-sm font-semibold text-white/80 mb-1">Shift Name</label>
+                  <input required type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="block w-full px-3 py-2 bg-neutral border border-borderBase rounded-lg text-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary sm:text-sm transition-colors" placeholder="e.g. India Morning" />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Start Time</label>
-                    <input required type="time" value={formData.startTime} onChange={e => setFormData({...formData, startTime: e.target.value})} className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-primary focus:border-primary sm:text-sm" />
+                    <label className="block text-sm font-semibold text-white/80 mb-1">Start Time</label>
+                    <input required type="time" value={formData.startTime} onChange={e => setFormData({...formData, startTime: e.target.value})} className="block w-full px-3 py-2 bg-neutral border border-borderBase rounded-lg text-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary sm:text-sm transition-colors" />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">End Time</label>
-                    <input required type="time" value={formData.endTime} onChange={e => setFormData({...formData, endTime: e.target.value})} className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-primary focus:border-primary sm:text-sm" />
+                    <label className="block text-sm font-semibold text-white/80 mb-1">End Time</label>
+                    <input required type="time" value={formData.endTime} onChange={e => setFormData({...formData, endTime: e.target.value})} className="block w-full px-3 py-2 bg-neutral border border-borderBase rounded-lg text-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary sm:text-sm transition-colors" />
                   </div>
                 </div>
-                <div className="flex justify-end space-x-3 mt-6 pt-6 border-t border-gray-200">
-                  <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50">Cancel</button>
-                  <button type="submit" className="px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-lg text-white bg-primary hover:bg-primaryHover">Save Shift</button>
+                <div className="flex justify-end space-x-3 mt-6 pt-6 border-t border-borderBase">
+                  <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 border border-borderBase text-sm font-medium rounded-lg text-white/80 bg-surface hover:bg-white/5 hover:text-white transition-colors">Cancel</button>
+                  <button type="submit" className="px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-lg text-white bg-primary hover:bg-primaryHover transition-colors">Save Shift</button>
                 </div>
               </form>
             </div>

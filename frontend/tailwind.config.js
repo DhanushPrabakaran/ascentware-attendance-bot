@@ -7,13 +7,17 @@ export default {
   theme: {
     extend: {
       colors: {
-        primary: '#4f46e5',
-        primaryHover: '#4338ca',
-        sidebar: '#111827',
-        background: '#f3f4f6',
+        primary: '#2BB3E4',
+        primaryHover: '#1B9AC9',
+        secondary: '#FFFFFF',
+        tertiary: '#004B66',
+        neutral: '#001A24',
+        background: '#001A24',
+        surface: 'rgba(255, 255, 255, 0.05)',
+        borderBase: 'rgba(255, 255, 255, 0.1)',
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
+        sans: ['Manrope', 'system-ui', 'sans-serif'],
       },
     },
   },

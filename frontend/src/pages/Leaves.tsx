@@ -23,26 +23,29 @@ export default function Leaves() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-gray-900">Leave Requests</h2>
-        <p className="mt-1 text-sm text-gray-500">View all submitted leave applications.</p>
+        <h2 className="text-3xl font-bold text-white tracking-tight">Leave Requests</h2>
+        <p className="mt-2 text-sm text-white/60 font-medium">View all submitted leave applications.</p>
       </div>
 
-      <div className="bg-white shadow-sm rounded-xl border border-gray-200 overflow-hidden">
-        <ul className="divide-y divide-gray-200">
+      <div className="bg-surface border border-borderBase rounded-xl overflow-hidden shadow-2xl shadow-black/20">
+        <ul className="divide-y divide-borderBase">
           {leaves.map((l) => (
-            <li key={l.id} className="p-6 hover:bg-gray-50 transition-colors">
+            <li key={l.id} className="p-6 hover:bg-white/5 transition-colors">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-semibold text-gray-900">{l.employee.name} <span className="text-gray-500 font-normal text-xs ml-1">({l.employee.email})</span></h3>
-                  <p className="text-gray-700 mt-2 text-sm bg-gray-50 p-3 rounded-lg border border-gray-200 shadow-inner whitespace-pre-wrap">
+                  <h3 className="text-sm font-semibold text-white">{l.employee.name} <span className="text-white/50 font-normal text-xs ml-1">({l.employee.email})</span></h3>
+                  <p className="text-white/80 mt-3 text-sm bg-tertiary p-4 rounded-lg border border-borderBase shadow-inner whitespace-pre-wrap">
                     {l.reason}
                   </p>
                 </div>
                 <div className="mt-4 sm:mt-0 sm:text-right">
-                  <p className="text-xs font-semibold text-primary tracking-wider uppercase bg-blue-50 px-2.5 py-1 rounded-full border border-blue-100 inline-block">
+                  <p className={`text-xs font-semibold tracking-wider uppercase px-2.5 py-1 rounded-full border inline-block
+                    ${l.status === 'APPROVED' ? 'bg-primary/10 text-primary border-primary/20' : 
+                      l.status === 'REJECTED' ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' : 
+                      'bg-white/10 text-white border-white/20'}`}>
                     {l.status}
                   </p>
-                  <p className="text-xs text-gray-400 mt-2 font-medium">
+                  <p className="text-xs text-white/40 mt-3 font-medium">
                     Applied: {new Date(l.date).toLocaleString()}
                   </p>
                 </div>
@@ -50,7 +53,7 @@ export default function Leaves() {
             </li>
           ))}
           {leaves.length === 0 && (
-            <li className="p-12 text-center text-gray-500 text-sm">No leaves have been requested yet.</li>
+            <li className="p-12 text-center text-white/40 text-sm font-medium">No leaves have been requested yet.</li>
           )}
         </ul>
       </div>

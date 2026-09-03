@@ -28,21 +28,21 @@ export class BotHelper {
       const appId = process.env.CLIENT_ID || process.env.CLIENTID || process.env.MicrosoftAppId || '';
       const adapter = context.adapter as CloudAdapter;
 
-      const conversationReference = {
-        agent: context.activity.recipient || { id: `28:${appId}` },
-        channelId: context.activity.channelId || 'msteams',
-        conversation: {
-          id: groupChatId,
-          isGroup: true,
-          conversationType: 'groupChat',
-          tenantId: context.activity.conversation?.tenantId,
-        },
-        tenantId: context.activity.conversation?.tenantId,
-        serviceUrl: context.activity.serviceUrl,
-      };
+      const reference = TurnContext.getConversationReference(context.activity);
+      
+      // Override the conversation ID to point to the group chat
+      reference.conversation = {
+        id: groupChatId,
+        isGroup: true,
+        conversationType: 'groupChat',
+        tenantId: context.activity.conversation?.tenantId
+      } as any;
+      
+      // Delete user so we aren't targeting the individual user's thread
+      delete reference.user;
 
       await adapter.continueConversation(
-        conversationReference as any,
+        reference as any,
         async (tContext: TurnContext) => {
           await tContext.sendActivity(message);
         }

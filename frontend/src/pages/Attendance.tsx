@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Calendar as CalendarIcon, Filter, Search } from 'lucide-react';
 
 interface AttendanceRecord {
   id: string;
@@ -23,57 +24,92 @@ export default function Attendance() {
   }, []);
 
   const formatTime = (isoString: string | null) => {
-    if (!isoString) return 'Active';
+    if (!isoString) return '--:--';
     return new Date(isoString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-gray-900">Attendance Log</h2>
-        <p className="mt-1 text-sm text-gray-500">View daily check-in and check-out logs for all employees.</p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-3xl font-bold text-white tracking-tight">Attendance Log</h2>
+          <p className="mt-2 text-sm text-white/60 font-medium">Daily check-in and check-out records.</p>
+        </div>
+        <div className="flex items-center space-x-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40 h-4 w-4" />
+            <input type="text" placeholder="Search employee..." 
+              className="bg-surface border border-borderBase rounded-lg pl-9 pr-4 py-2 text-sm text-white placeholder-white/40 focus:outline-none focus:border-primary/50 transition-colors" />
+          </div>
+          <button className="bg-surface border border-borderBase p-2 rounded-lg text-white/70 hover:text-white hover:bg-white/5 transition-colors">
+            <Filter className="h-5 w-5" />
+          </button>
+        </div>
       </div>
 
-      <div className="bg-white shadow-sm rounded-xl border border-gray-200 overflow-hidden">
-        <ul className="divide-y divide-gray-200">
-          {attendances.map((a) => (
-            <li key={a.id} className="p-6 hover:bg-gray-50 transition-colors">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-semibold text-gray-900">
-                    {a.employee.name} <span className="text-gray-500 font-normal text-xs ml-1">({a.employee.email})</span>
-                  </h3>
-                  <div className="mt-2 text-sm text-gray-700 flex space-x-4">
-                    <div>
-                      <span className="font-semibold">In:</span> {formatTime(a.checkIn)}
-                    </div>
-                    <div>
-                      <span className="font-semibold">Out:</span> {formatTime(a.checkOut)}
-                    </div>
-                    {a.checkOut && (
-                      <div className="text-gray-500">
-                        <span className="font-semibold">Hours:</span> {(a.workingMinutes / 60).toFixed(1)}h
+      <div className="bg-surface border border-borderBase rounded-xl overflow-hidden shadow-2xl shadow-black/20">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b border-borderBase bg-white/5">
+                <th className="py-4 px-6 text-xs font-semibold text-white/60 uppercase tracking-wider">Employee</th>
+                <th className="py-4 px-6 text-xs font-semibold text-white/60 uppercase tracking-wider">Date</th>
+                <th className="py-4 px-6 text-xs font-semibold text-white/60 uppercase tracking-wider">Status</th>
+                <th className="py-4 px-6 text-xs font-semibold text-white/60 uppercase tracking-wider">Check In</th>
+                <th className="py-4 px-6 text-xs font-semibold text-white/60 uppercase tracking-wider">Check Out</th>
+                <th className="py-4 px-6 text-xs font-semibold text-white/60 uppercase tracking-wider text-right">Hours</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-borderBase">
+              {attendances.map((a) => (
+                <tr key={a.id} className="hover:bg-white/5 transition-colors">
+                  <td className="py-4 px-6 whitespace-nowrap">
+                    <div className="flex items-center">
+                      <div className="w-8 h-8 rounded bg-tertiary text-primary flex items-center justify-center font-bold text-sm mr-3">
+                        {a.employee.name.charAt(0)}
                       </div>
-                    )}
-                  </div>
-                </div>
-                <div className="mt-4 sm:mt-0 sm:text-right">
-                  <p className="text-xs font-semibold tracking-wider uppercase px-2.5 py-1 rounded-full border inline-block 
-                    ${a.status === 'LATE' ? 'bg-orange-50 text-orange-600 border-orange-100' : 
-                      a.checkOut ? 'bg-green-50 text-green-600 border-green-100' : 'bg-blue-50 text-blue-600 border-blue-100'}">
-                    {a.status === 'LATE' ? 'Late Check-in' : a.checkOut ? 'Checked Out' : 'Working'}
-                  </p>
-                  <p className="text-xs text-gray-400 mt-2 font-medium">
-                    {new Date(a.date).toLocaleDateString()}
-                  </p>
-                </div>
-              </div>
-            </li>
-          ))}
-          {attendances.length === 0 && (
-            <li className="p-12 text-center text-gray-500 text-sm">No attendance records found.</li>
-          )}
-        </ul>
+                      <div>
+                        <div className="text-sm font-semibold text-white">{a.employee.name}</div>
+                        <div className="text-xs text-white/50">{a.employee.email}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="py-4 px-6 whitespace-nowrap">
+                    <div className="flex items-center text-sm text-white/80">
+                      <CalendarIcon className="w-4 h-4 mr-2 text-white/40" />
+                      {new Date(a.date).toLocaleDateString()}
+                    </div>
+                  </td>
+                  <td className="py-4 px-6 whitespace-nowrap">
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wider
+                      ${a.status === 'LATE' ? 'bg-orange-500/10 text-orange-400 border border-orange-500/20' : 
+                        a.checkOut ? 'bg-white/10 text-white/50 border border-white/10' : 
+                        a.status === 'ON_BREAK' ? 'bg-yellow-400/10 text-yellow-400 border border-yellow-400/20' : 
+                        'bg-primary/10 text-primary border border-primary/20'}`}>
+                      {a.status === 'LATE' ? 'Late' : a.checkOut ? 'Left' : a.status === 'ON_BREAK' ? 'Break' : 'Active'}
+                    </span>
+                  </td>
+                  <td className="py-4 px-6 whitespace-nowrap text-sm text-white/80 font-medium">
+                    {formatTime(a.checkIn)}
+                  </td>
+                  <td className="py-4 px-6 whitespace-nowrap text-sm text-white/80 font-medium">
+                    {formatTime(a.checkOut)}
+                  </td>
+                  <td className="py-4 px-6 whitespace-nowrap text-sm text-white text-right font-semibold">
+                    {a.workingMinutes > 0 ? (a.workingMinutes / 60).toFixed(1) + 'h' : '--'}
+                  </td>
+                </tr>
+              ))}
+              {attendances.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="py-12 text-center text-white/40 text-sm font-medium">
+                    No attendance records found.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
