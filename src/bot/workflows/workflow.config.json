@@ -16,6 +16,10 @@
       "handler": "CancelLeaveHandler",
       "description": "Cancels leave application and goes back to check-in."
     },
+    "cancelProcess": {
+      "handler": "CancelProcessHandler",
+      "description": "Silently cancels the current process."
+    },
     "cancelPlanTasks": {
       "handler": "CancelPlanTasksHandler",
       "description": "Skips task planning and goes to working state."

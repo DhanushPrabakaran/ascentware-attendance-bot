@@ -30,6 +30,12 @@ export class CardBuilder {
           title: 'Apply Leave',
           data: { action: 'applyLeave' },
         },
+        {
+          type: 'Action.Execute',
+          title: 'Cancel',
+          style: 'destructive',
+          data: { action: 'cancelProcess' },
+        },
       ],
     });
   }

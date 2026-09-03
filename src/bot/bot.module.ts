@@ -7,6 +7,7 @@ import { CheckInHandler } from './workflows/handlers/checkin.handler';
 import { ApplyLeaveHandler } from './workflows/handlers/apply-leave.handler';
 import { SubmitLeaveHandler } from './workflows/handlers/submit-leave.handler';
 import { CancelLeaveHandler } from './workflows/handlers/cancel-leave.handler';
+import { CancelProcessHandler } from './workflows/handlers/cancel-process.handler';
 import { CancelPlanTasksHandler } from './workflows/handlers/cancel-plan-tasks.handler';
 import { SaveAllTasksHandler } from './workflows/handlers/save-all-tasks.handler';
 import { StartBreakHandler } from './workflows/handlers/start-break.handler';
@@ -23,6 +24,7 @@ import { SubmitReviewHandler } from './workflows/handlers/submit-review.handler'
     ApplyLeaveHandler,
     SubmitLeaveHandler,
     CancelLeaveHandler,
+    CancelProcessHandler,
     CancelPlanTasksHandler,
     SaveAllTasksHandler,
     StartBreakHandler,

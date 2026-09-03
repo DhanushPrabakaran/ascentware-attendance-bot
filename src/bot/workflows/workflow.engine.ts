@@ -4,6 +4,7 @@ import { CheckInHandler } from './handlers/checkin.handler';
 import { ApplyLeaveHandler } from './handlers/apply-leave.handler';
 import { SubmitLeaveHandler } from './handlers/submit-leave.handler';
 import { CancelLeaveHandler } from './handlers/cancel-leave.handler';
+import { CancelProcessHandler } from './handlers/cancel-process.handler';
 import { CancelPlanTasksHandler } from './handlers/cancel-plan-tasks.handler';
 import { SaveAllTasksHandler } from './handlers/save-all-tasks.handler';
 import { StartBreakHandler } from './handlers/start-break.handler';
@@ -21,6 +22,7 @@ export class WorkflowEngine {
     applyLeaveHandler: ApplyLeaveHandler,
     submitLeaveHandler: SubmitLeaveHandler,
     cancelLeaveHandler: CancelLeaveHandler,
+    cancelProcessHandler: CancelProcessHandler,
     cancelPlanTasksHandler: CancelPlanTasksHandler,
     saveAllTasksHandler: SaveAllTasksHandler,
     startBreakHandler: StartBreakHandler,
@@ -32,6 +34,7 @@ export class WorkflowEngine {
     this.handlers.set('ApplyLeaveHandler', applyLeaveHandler);
     this.handlers.set('SubmitLeaveHandler', submitLeaveHandler);
     this.handlers.set('CancelLeaveHandler', cancelLeaveHandler);
+    this.handlers.set('CancelProcessHandler', cancelProcessHandler);
     this.handlers.set('CancelPlanTasksHandler', cancelPlanTasksHandler);
     this.handlers.set('SaveAllTasksHandler', saveAllTasksHandler);
     this.handlers.set('StartBreakHandler', startBreakHandler);
