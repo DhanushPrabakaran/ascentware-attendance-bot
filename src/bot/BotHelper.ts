@@ -41,7 +41,7 @@ export class BotHelper {
       // Delete user so we aren't targeting the individual user's thread
       delete reference.user;
 
-      await adapter.continueConversation(
+      await adapter.continueConversationAsync(
         appId,
         reference as any,
         async (tContext: TurnContext) => {
