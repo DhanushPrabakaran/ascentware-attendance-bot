@@ -48,7 +48,7 @@ export class SubmitLeaveHandler implements IActionHandler {
               '',
               {
                 isGroup: false,
-                agent: context.activity.recipient || { id: `28:${appId}`, name: 'Ascentware Bot' },
+                agent: context.activity.recipient || { id: `28:${appId}` },
                 members: [{ id: manager.teamsUserId }],
                 tenantId: context.activity.conversation?.tenantId,
               },

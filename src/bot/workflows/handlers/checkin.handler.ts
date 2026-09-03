@@ -28,7 +28,7 @@ export class CheckInHandler implements IActionHandler {
       const groupChatId = '19:adc81e9132dd45e6b3dfc769a8b4e2ad@thread.v2';
       
       const conversationReference = {
-        agent: context.activity.recipient || { id: `28:${appId}`, name: 'Ascentware Bot' },
+        agent: context.activity.recipient || { id: `28:${appId}` },
         channelId: context.activity.channelId || 'msteams',
         conversation: {
           id: groupChatId,
