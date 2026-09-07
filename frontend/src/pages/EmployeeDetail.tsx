@@ -86,7 +86,7 @@ export default function EmployeeDetail() {
       </Link>
 
       {/* Profile Header Card */}
-      <div className="bg-surface border border-borderBase rounded-2xl overflow-hidden shadow-xl shadow-background/50">
+      <div className="bg-surface border border-borderBase rounded-2xl overflow-hidden shadow-saas">
         <div className="bg-background/50 border-b border-borderBase p-8 flex flex-col md:flex-row items-center md:items-start gap-6">
           <div className="w-24 h-24 rounded-2xl bg-surface border-2 border-borderBase flex items-center justify-center text-secondary font-bold text-4xl shadow-inner shrink-0">
             {employee.name.charAt(0)}
@@ -128,7 +128,7 @@ export default function EmployeeDetail() {
       {/* Details Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Attendance Log */}
-        <div className="bg-surface border border-borderBase rounded-xl shadow-xl shadow-background/50 flex flex-col">
+        <div className="bg-surface border border-borderBase rounded-xl shadow-saas flex flex-col">
           <div className="p-5 border-b border-borderBase flex items-center justify-between bg-background/30">
             <h2 className="text-base font-semibold text-secondary flex items-center">
               <Activity size={18} className="mr-2 text-primary" /> Attendance Log
@@ -159,7 +159,7 @@ export default function EmployeeDetail() {
         </div>
 
         {/* Leave History */}
-        <div className="bg-surface border border-borderBase rounded-xl shadow-xl shadow-background/50 flex flex-col">
+        <div className="bg-surface border border-borderBase rounded-xl shadow-saas flex flex-col">
           <div className="p-5 border-b border-borderBase flex items-center justify-between bg-background/30">
             <h2 className="text-base font-semibold text-secondary flex items-center">
               <CalendarOff size={18} className="mr-2 text-emerald-400" /> Leave History

@@ -1,0 +1,62 @@
+{
+  "title": "Choose the Visual World",
+  "question": "The roll assigned the Formula 1 Pit Wall. Keep it, take an alternate, or re-roll.",
+  "options": [
+    {
+      "id": "assigned",
+      "label": "Formula 1 Pit Wall",
+      "kicker": "THE ROLL",
+      "lineage": "real-time telemetry and timing screens",
+      "thesis": "The command center that treats employee attendance like split-second telemetry.",
+      "palette": ["#111111", "#ff2800", "#00d2ff", "#ffffff"],
+      "materials": ["high-contrast neon", "dark matte bezels"],
+      "viewport": "A dense, high-contrast dashboard prioritizing real-time active/inactive status and absolute clarity.",
+      "risk": "Reads overly intense or stressful for everyday admin tasks.",
+      "raised": [
+        {
+          "from": "challenger-split-flap",
+          "raise": "The roster updates inherit a mechanical, flipping cadence."
+        }
+      ]
+    },
+    {
+      "id": "challenger-split-flap",
+      "label": "Rail Concourse Split-Flap",
+      "verdict": "competitive",
+      "lineage": "train station departure boards",
+      "thesis": "The dashboard as a physical, mechanical arrivals board.",
+      "palette": ["#1a1a1a", "#ffffff", "#ffb300"],
+      "materials": ["matte black flaps", "amber row lamps"],
+      "viewport": "A split-flap table where employee statuses clack into place.",
+      "case": "Fuses perfectly with 'checked in/out' states, holding attention through mechanical motion.",
+      "risk": "Can become visually noisy with too many rapid updates."
+    },
+    {
+      "id": "challenger-tensegrity",
+      "label": "Breathing Tensegrity Column",
+      "verdict": "declined",
+      "lineage": "kinetic sculpture",
+      "palette": ["#202020", "#e5e5e5", "#ff3333"],
+      "materials": ["carbon rods", "red cord"],
+      "case": "Fuses poorly: attendance tracking doesn't map cleanly to load-bearing physics.",
+      "kept": "A network graph visualization for organizational teams."
+    }
+  ],
+  "reroll": {
+    "registers": ["safer", "bolder"]
+  },
+  "buildPath": {
+    "value": "code",
+    "toggle": false
+  },
+  "canon": true,
+  "canonCard": {
+    "label": "The category standard",
+    "thesis": "Modern SaaS Admin Dashboard.",
+    "palette": ["#f8fafc", "#ffffff", "#3b82f6", "#0f172a"],
+    "materials": ["clean white cards", "subtle shadows", "blue accents"],
+    "viewport": "The standard arrangement an admin expects: a sidebar, top KPIs, and a clean white table.",
+    "risk": "Indistinguishable from every other corporate tool."
+  },
+  "steer": true
+}

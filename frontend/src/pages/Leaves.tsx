@@ -29,7 +29,7 @@ export default function Leaves() {
         <p className="mt-2 text-sm text-secondary/60 font-medium">View all submitted leave applications.</p>
       </div>
 
-      <div className="bg-surface border border-borderBase rounded-xl overflow-hidden shadow-xl shadow-background/50">
+      <div className="bg-surface border border-borderBase rounded-xl overflow-hidden shadow-saas">
         <ul className="divide-y divide-borderBase">
           {leaves.map((l) => (
             <li key={l.id} className="p-6 hover:bg-surfaceHover/50 transition-colors">

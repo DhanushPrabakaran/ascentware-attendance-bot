@@ -51,10 +51,10 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-surface border border-borderBase rounded-xl overflow-hidden shadow-xl shadow-background/50">
-          <div className="p-6 border-b border-borderBase flex justify-between items-center bg-background/50">
+        <div className="lg:col-span-2 bg-surface border border-borderBase rounded-xl overflow-hidden shadow-saas">
+          <div className="p-6 border-b border-borderBase flex justify-between items-center bg-neutral">
             <h3 className="text-lg font-semibold text-secondary flex items-center"><Clock size={18} className="mr-2 text-primary"/> Live Roster</h3>
-            <span className="text-xs font-medium text-secondary/50 bg-white/5 px-3 py-1 rounded-full">{employees.length} Total</span>
+            <span className="text-xs font-medium text-secondary/70 bg-surface px-3 py-1 rounded-full border border-borderBase">{employees.length} Total</span>
           </div>
           <ul className="divide-y divide-borderBase max-h-[600px] overflow-y-auto">
             {employees.map(emp => {
@@ -104,16 +104,16 @@ export default function Dashboard() {
         </div>
         
         <div className="space-y-6">
-          <div className="bg-surface border border-borderBase rounded-xl p-6 shadow-xl shadow-background/50">
+          <div className="bg-surface border border-borderBase rounded-xl p-6 shadow-saas">
             <h3 className="text-lg font-semibold text-secondary mb-4">Quick Insights</h3>
             <div className="space-y-4">
-              <div className="p-4 bg-background rounded-lg border border-borderBase">
+              <div className="p-4 bg-neutral rounded-lg border border-borderBase">
                 <div className="text-sm font-medium text-secondary/60 mb-1">Attendance Rate</div>
                 <div className="text-2xl font-bold text-secondary">
                   {employees.length ? Math.round(((online.length + onBreak.length + checkedOut.length) / employees.length) * 100) : 0}%
                 </div>
               </div>
-              <div className="p-4 bg-background rounded-lg border border-borderBase">
+              <div className="p-4 bg-neutral rounded-lg border border-borderBase">
                 <div className="text-sm font-medium text-secondary/60 mb-1">Active Now</div>
                 <div className="text-2xl font-bold text-primary">{online.length}</div>
               </div>
@@ -127,8 +127,8 @@ export default function Dashboard() {
 
 function StatCard({ title, value, icon, color }: { title: string, value: number, icon: any, color: string }) {
   return (
-    <div className="bg-surface border border-borderBase p-6 rounded-xl relative overflow-hidden group hover:border-borderBase/80 transition-all shadow-xl shadow-background/50">
-      <div className={`absolute top-0 right-0 -mt-2 -mr-2 p-6 rounded-bl-3xl bg-white/5 transition-colors ${color}`}>
+    <div className="bg-surface border border-borderBase p-6 rounded-xl relative overflow-hidden group hover:shadow-saas-hover transition-all shadow-saas">
+      <div className={`absolute top-0 right-0 -mt-2 -mr-2 p-6 rounded-bl-3xl bg-neutral transition-colors ${color}`}>
         {icon}
       </div>
       <p className="text-sm font-semibold text-secondary/50 tracking-wide uppercase">{title}</p>

@@ -23,7 +23,7 @@ export default function Layout() {
   return (
     <div className="flex h-screen bg-background text-secondary font-sans">
       {/* Sidebar */}
-      <div className="w-64 bg-surface flex flex-col border-r border-borderBase shadow-xl">
+      <div className="w-64 bg-surface flex flex-col border-r border-borderBase shadow-sm">
         <div className="p-6 text-xl font-bold border-b border-borderBase flex items-center space-x-3">
           <div className="w-8 h-8 bg-primary rounded flex items-center justify-center">
             <LayoutDashboard size={18} className="text-white" />

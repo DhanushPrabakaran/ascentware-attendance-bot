@@ -49,7 +49,7 @@ export default function Attendance() {
         </div>
       </div>
 
-      <div className="bg-surface border border-borderBase rounded-xl overflow-hidden shadow-xl shadow-background/50">
+      <div className="bg-surface border border-borderBase rounded-xl overflow-hidden shadow-saas">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
