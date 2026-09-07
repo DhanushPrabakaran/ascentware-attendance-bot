@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Clock, CalendarOff, CheckCircle2, XCircle } from 'lucide-react';
+import { ArrowLeft, Clock, CalendarOff, CheckCircle2, XCircle, User, Briefcase, Mail, Activity } from 'lucide-react';
 
 export default function EmployeeDetail() {
   const { id } = useParams();
@@ -16,88 +16,140 @@ export default function EmployeeDetail() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // We assume /api/employees gives us all employees, we find by ID
-      const empRes = await fetch('/api/employees');
-      const empData = await empRes.json();
-      const currentEmp = empData.find((e: any) => e.id === id);
-      setEmployee(currentEmp);
-
-      const [attRes, leaveRes] = await Promise.all([
-        fetch('/api/attendance'),
-        fetch('/api/leaves')
+      const [empRes, attRes, leaveRes] = await Promise.all([
+        fetch('/api/v1/admin/employees'),
+        fetch('/api/v1/admin/attendances'),
+        fetch('/api/v1/admin/leaves')
       ]);
+      const empData = await empRes.json();
       const attData = await attRes.json();
       const leaveData = await leaveRes.json();
 
-      setAttendances(attData.filter((a: any) => a.employee?.id === id || a.employeeId === id));
-      setLeaves(leaveData.filter((l: any) => l.employee?.id === id || l.employeeId === id));
+      const currentEmp = empData.find((e: any) => e.id === id);
+      setEmployee(currentEmp);
+
+      setAttendances((attData as any[]).filter(a => a.employee?.id === id || a.employeeId === id));
+      setLeaves((leaveData as any[]).filter(l => l.employee?.id === id || l.employeeId === id));
     } catch (error) {
       console.error('Failed to fetch data', error);
     }
     setLoading(false);
   };
 
-  if (loading) {
-    return <div className="p-8 text-secondary/60">Loading employee details...</div>;
-  }
-
+  if (loading) return <div className="p-8 text-secondary/60 animate-pulse">Loading profile...</div>;
   if (!employee) {
     return (
-      <div className="p-8">
-        <Link to="/employees" className="text-primary hover:underline flex items-center mb-6">
-          <ArrowLeft size={16} className="mr-2" /> Back to Employees
-        </Link>
-        <div className="text-secondary/60">Employee not found.</div>
+      <div className="p-8 text-center bg-surface border border-borderBase rounded-xl mt-8">
+        <User size={48} className="mx-auto text-secondary/20 mb-4" />
+        <h2 className="text-xl font-bold text-secondary mb-2">Employee Not Found</h2>
+        <Link to="/employees" className="text-primary hover:underline text-sm font-medium">Return to Directory</Link>
       </div>
     );
   }
 
   const sortedAttendances = [...attendances].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   const sortedLeaves = [...leaves].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  
+  // Determine current real-time status
+  const todayStr = new Date().toISOString().split('T')[0];
+  const todaysAtt = sortedAttendances.find(a => a.date.startsWith(todayStr));
+  const todaysLeave = sortedLeaves.find(l => l.date.startsWith(todayStr) && l.status === 'APPROVED');
+  
+  let currentStatus = "Absent";
+  let statusColor = "text-secondary/40";
+  let statusBg = "bg-surfaceHover border-borderBase";
+
+  if (todaysLeave) {
+    currentStatus = "On Leave Today";
+    statusColor = "text-emerald-400";
+    statusBg = "bg-emerald-400/10 border-emerald-400/20";
+  } else if (todaysAtt) {
+    if (todaysAtt.checkOut) {
+      currentStatus = "Checked Out";
+      statusColor = "text-secondary/60";
+      statusBg = "bg-white/10 border-white/10";
+    } else if (todaysAtt.status === 'ON_BREAK') {
+      currentStatus = "On Break";
+      statusColor = "text-yellow-400";
+      statusBg = "bg-yellow-400/10 border-yellow-400/20";
+    } else {
+      currentStatus = "Active Now";
+      statusColor = "text-primary";
+      statusBg = "bg-primary/10 border-primary/20 shadow-[0_0_15px_rgba(43,179,228,0.15)]";
+    }
+  }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <Link to="/employees" className="text-tertiary hover:text-secondary transition-colors flex items-center text-sm font-medium mb-4">
-          <ArrowLeft size={16} className="mr-1" /> Back
-        </Link>
-        <h1 className="text-3xl font-bold tracking-tight text-secondary">{employee.name}</h1>
-        <p className="text-tertiary mt-1">{employee.email}</p>
-        <div className="mt-4 flex gap-3">
-          <span className="px-3 py-1 bg-surface border border-borderBase rounded-full text-xs font-semibold text-secondary">
-            Role: {employee.role}
-          </span>
-          <span className="px-3 py-1 bg-surface border border-borderBase rounded-full text-xs font-semibold text-secondary">
-            Teams: {employee.teamsUserId ? 'Linked' : 'Not Linked'}
-          </span>
+    <div className="space-y-6 animate-in fade-in duration-500">
+      <Link to="/employees" className="inline-flex items-center text-sm font-semibold text-secondary/60 hover:text-primary transition-colors">
+        <ArrowLeft size={16} className="mr-2" /> Back to Directory
+      </Link>
+
+      {/* Profile Header Card */}
+      <div className="bg-surface border border-borderBase rounded-2xl overflow-hidden shadow-xl shadow-background/50">
+        <div className="bg-background/50 border-b border-borderBase p-8 flex flex-col md:flex-row items-center md:items-start gap-6">
+          <div className="w-24 h-24 rounded-2xl bg-surface border-2 border-borderBase flex items-center justify-center text-secondary font-bold text-4xl shadow-inner shrink-0">
+            {employee.name.charAt(0)}
+          </div>
+          <div className="flex-1 text-center md:text-left">
+            <h1 className="text-3xl font-bold tracking-tight text-secondary">{employee.name}</h1>
+            <div className="mt-2 flex flex-wrap items-center justify-center md:justify-start gap-4 text-sm font-medium text-secondary/60">
+              <span className="flex items-center"><Mail size={16} className="mr-1.5 opacity-70" /> {employee.email}</span>
+              <span className="flex items-center"><Briefcase size={16} className="mr-1.5 opacity-70" /> {employee.role || 'Staff'}</span>
+            </div>
+          </div>
+          <div className="shrink-0 flex flex-col items-center md:items-end gap-3">
+            <div className={`px-4 py-1.5 rounded-lg border text-sm font-bold uppercase tracking-wider ${statusBg} ${statusColor}`}>
+              {currentStatus}
+            </div>
+            <span className={`text-xs font-semibold px-2.5 py-1 rounded-md ${employee.teamsUserId ? 'bg-primary/10 text-primary' : 'bg-surfaceHover text-secondary/40'}`}>
+              {employee.teamsUserId ? 'Teams Connected' : 'No Teams Link'}
+            </span>
+          </div>
+        </div>
+        
+        {/* Key Metrics Strip */}
+        <div className="grid grid-cols-3 divide-x divide-borderBase bg-surface">
+          <div className="p-6 text-center">
+            <div className="text-3xl font-bold text-secondary">{attendances.length}</div>
+            <div className="text-xs font-semibold text-secondary/50 uppercase tracking-wider mt-1">Total Shifts</div>
+          </div>
+          <div className="p-6 text-center">
+            <div className="text-3xl font-bold text-secondary">{leaves.filter(l => l.status === 'APPROVED').length}</div>
+            <div className="text-xs font-semibold text-secondary/50 uppercase tracking-wider mt-1">Approved Leaves</div>
+          </div>
+          <div className="p-6 text-center">
+            <div className="text-3xl font-bold text-secondary">{attendances.filter(a => a.status === 'LATE').length || 0}</div>
+            <div className="text-xs font-semibold text-secondary/50 uppercase tracking-wider mt-1">Late Arrivals</div>
+          </div>
         </div>
       </div>
 
-      {/* Bento Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Main Stats */}
-        <div className="lg:col-span-2 space-y-6">
-          <div className="bg-surface border border-borderBase rounded-xl p-6 shadow-xl shadow-background/50">
-            <h2 className="text-lg font-semibold text-secondary mb-4 flex items-center">
-              <Clock size={18} className="mr-2 text-primary" /> Recent Activity
+      {/* Details Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Attendance Log */}
+        <div className="bg-surface border border-borderBase rounded-xl shadow-xl shadow-background/50 flex flex-col">
+          <div className="p-5 border-b border-borderBase flex items-center justify-between bg-background/30">
+            <h2 className="text-base font-semibold text-secondary flex items-center">
+              <Activity size={18} className="mr-2 text-primary" /> Attendance Log
             </h2>
+          </div>
+          <div className="p-5 flex-1 overflow-y-auto max-h-[400px]">
             {sortedAttendances.length === 0 ? (
-              <p className="text-tertiary text-sm">No recent attendance records.</p>
+              <div className="text-center py-8 text-secondary/40 text-sm font-medium">No attendance records found.</div>
             ) : (
-              <div className="space-y-4">
-                {sortedAttendances.slice(0, 5).map(att => (
-                  <div key={att.id} className="flex justify-between items-center p-3 bg-background rounded-lg border border-borderBase">
+              <div className="space-y-3">
+                {sortedAttendances.map(att => (
+                  <div key={att.id} className="flex justify-between items-center p-4 bg-background rounded-lg border border-borderBase hover:border-borderBase/80 transition-colors">
                     <div>
-                      <div className="text-sm font-medium text-secondary">{new Date(att.date).toLocaleDateString()}</div>
-                      <div className="text-xs text-tertiary mt-1">
-                        In: {new Date(att.checkIn).toLocaleTimeString()} 
-                        {att.checkOut && ` - Out: ${new Date(att.checkOut).toLocaleTimeString()}`}
+                      <div className="text-sm font-bold text-secondary mb-1">{new Date(att.date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</div>
+                      <div className="text-xs font-medium text-secondary/50">
+                        In: {new Date(att.checkIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {att.checkOut && ` • Out: ${new Date(att.checkOut).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
                       </div>
                     </div>
-                    <span className="px-3 py-1 rounded-full text-xs font-semibold bg-surfaceHover text-primary border border-primary/20">
-                      {att.status}
+                    <span className="px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-surfaceHover text-secondary/70 border border-borderBase">
+                      {att.status.replace('_', ' ')}
                     </span>
                   </div>
                 ))}
@@ -106,25 +158,31 @@ export default function EmployeeDetail() {
           </div>
         </div>
 
-        {/* Sidebar */}
-        <div className="space-y-6">
-          <div className="bg-surface border border-borderBase rounded-xl p-6 shadow-xl shadow-background/50">
-            <h2 className="text-lg font-semibold text-secondary mb-4 flex items-center">
-              <CalendarOff size={18} className="mr-2 text-primary" /> Leaves
+        {/* Leave History */}
+        <div className="bg-surface border border-borderBase rounded-xl shadow-xl shadow-background/50 flex flex-col">
+          <div className="p-5 border-b border-borderBase flex items-center justify-between bg-background/30">
+            <h2 className="text-base font-semibold text-secondary flex items-center">
+              <CalendarOff size={18} className="mr-2 text-emerald-400" /> Leave History
             </h2>
+          </div>
+          <div className="p-5 flex-1 overflow-y-auto max-h-[400px]">
             {sortedLeaves.length === 0 ? (
-              <p className="text-tertiary text-sm">No leave requests found.</p>
+              <div className="text-center py-8 text-secondary/40 text-sm font-medium">No leave requests found.</div>
             ) : (
               <div className="space-y-3">
-                {sortedLeaves.slice(0, 4).map(leave => (
-                  <div key={leave.id} className="p-3 bg-background rounded-lg border border-borderBase">
-                    <div className="flex justify-between items-start mb-2">
-                      <span className="text-sm font-medium text-secondary">{new Date(leave.date).toLocaleDateString()}</span>
-                      {leave.status === 'APPROVED' ? <CheckCircle2 size={16} className="text-primary" /> : 
-                       leave.status === 'REJECTED' ? <XCircle size={16} className="text-tertiary" /> :
-                       <span className="text-xs text-tertiary font-medium">{leave.status}</span>}
+                {sortedLeaves.map(leave => (
+                  <div key={leave.id} className="p-4 bg-background rounded-lg border border-borderBase hover:border-borderBase/80 transition-colors">
+                    <div className="flex justify-between items-start mb-3">
+                      <span className="text-sm font-bold text-secondary">{new Date(leave.date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                      <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border flex items-center gap-1.5
+                        ${leave.status === 'APPROVED' ? 'bg-emerald-400/10 text-emerald-400 border-emerald-400/20' : 
+                          leave.status === 'REJECTED' ? 'bg-red-500/10 text-red-400 border-red-500/20' : 
+                          'bg-surfaceHover text-secondary/60 border-borderBase'}`}>
+                        {leave.status === 'APPROVED' ? <CheckCircle2 size={12}/> : leave.status === 'REJECTED' ? <XCircle size={12}/> : null}
+                        {leave.status}
+                      </span>
                     </div>
-                    <p className="text-xs text-tertiary line-clamp-2">{leave.reason}</p>
+                    <p className="text-sm text-secondary/70 font-medium leading-relaxed bg-surface p-3 rounded border border-borderBase/50">{leave.reason}</p>
                   </div>
                 ))}
               </div>
