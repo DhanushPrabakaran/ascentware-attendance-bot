@@ -61,17 +61,18 @@ export class SubmitLeaveHandler implements IActionHandler {
           for (const manager of managers) {
             if (!manager.teamsUserId) continue;
 
-            await connectorClient.createConversation({
+            const conversationResponse = await connectorClient.createConversation({
               isGroup: false,
               bot: botRecipient,
               members: [{ id: manager.teamsUserId }],
-              tenantId: context.activity.conversation?.tenantId,
-              activity: {
-                type: 'message',
-                attachments: [
-                  CardBuilder.getLeaveApprovalCard(leave.id, employeeName, leaveType, startDate, endDate, reason)
-                ]
-              }
+              tenantId: context.activity.conversation?.tenantId
+            });
+
+            await connectorClient.sendToConversation(conversationResponse.id, {
+              type: 'message',
+              attachments: [
+                CardBuilder.getLeaveApprovalCard(leave.id, employeeName, leaveType, startDate, endDate, reason)
+              ]
             });
           }
         }

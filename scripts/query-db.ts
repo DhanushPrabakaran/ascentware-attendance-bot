@@ -9,7 +9,7 @@ const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
-  const emps = await prisma.employee.findMany({ select: { name: true, teamsUserId: true } });
+  const emps = await prisma.employee.findMany({ select: { name: true, email: true, managerEmails: true, teamsUserId: true } });
   console.log(JSON.stringify(emps, null, 2));
 }
 main().finally(() => process.exit(0));
