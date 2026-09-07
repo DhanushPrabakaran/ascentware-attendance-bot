@@ -45,30 +45,34 @@ export class SubmitLeaveHandler implements IActionHandler {
           const employeeName = context.activity.from.name || 'An employee';
           const botRecipient = context.activity.recipient || { id: `28:${appId}` };
 
+          // Find the connector client in the turn state to bypass CloudAdapter scope bugs
+          let connectorClient: any;
+          for (const val of Array.from((context.turnState as any).values())) {
+            if (val && typeof (val as any).createConversation === 'function') {
+              connectorClient = val;
+              break;
+            }
+          }
+
+          if (!connectorClient) {
+            throw new Error("Could not find ConnectorClient in TurnContext state");
+          }
+
           for (const manager of managers) {
             if (!manager.teamsUserId) continue;
 
-            await adapter.createConversationAsync(
-              appId,
-              'msteams',
-              context.activity.serviceUrl,
-              appId,
-              {
-                isGroup: false,
-                bot: botRecipient,
-                agent: botRecipient,
-                members: [{ id: manager.teamsUserId }],
-                tenantId: context.activity.conversation?.tenantId,
-              },
-              async (tContext: TurnContext) => {
-                await tContext.sendActivity({
-                  type: 'message',
-                  attachments: [
-                    CardBuilder.getLeaveApprovalCard(leave.id, employeeName, leaveType, startDate, endDate, reason)
-                  ]
-                } as any);
+            await connectorClient.createConversation({
+              isGroup: false,
+              bot: botRecipient,
+              members: [{ id: manager.teamsUserId }],
+              tenantId: context.activity.conversation?.tenantId,
+              activity: {
+                type: 'message',
+                attachments: [
+                  CardBuilder.getLeaveApprovalCard(leave.id, employeeName, leaveType, startDate, endDate, reason)
+                ]
               }
-            );
+            });
           }
         }
       } catch (err: any) {
