@@ -18,7 +18,7 @@ export class SaveAllTasksHandler implements IActionHandler {
     const tasks = [];
     let totalEstimatedMinutes = 0;
 
-    for (let i = 0; i < 5; i++) {
+    for (let i = 1; i <= 5; i++) {
       const tName = value[`taskName_${i}`];
       if (tName && tName.trim() !== '') {
         const estimatedMinutes =

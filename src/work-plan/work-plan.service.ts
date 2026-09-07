@@ -17,6 +17,11 @@ export class WorkPlanService {
       });
     }
 
+    // Delete existing tasks for this attendance so that editing works properly
+    await this.prisma.dailyTask.deleteMany({
+      where: { attendanceId },
+    });
+
     const createdTasks = await Promise.all(
       tasks.map((task) =>
         this.prisma.dailyTask.create({

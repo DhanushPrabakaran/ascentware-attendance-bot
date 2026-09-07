@@ -37,9 +37,13 @@ export class SubmitLeaveHandler implements IActionHandler {
         const managers = await BackendService.getManagers(context.activity.from.id);
         
         if (managers && managers.length > 0) {
-          const appId = process.env.CLIENT_ID || process.env.CLIENTID || process.env.MicrosoftAppId || '';
+          let appId = process.env.CLIENT_ID || process.env.CLIENTID || process.env.MicrosoftAppId || '';
+          if (!appId && context.activity.recipient?.id) {
+            appId = context.activity.recipient.id.replace('28:', '');
+          }
           const adapter = context.adapter as any;
           const employeeName = context.activity.from.name || 'An employee';
+          const botRecipient = context.activity.recipient || { id: `28:${appId}` };
 
           for (const manager of managers) {
             if (!manager.teamsUserId) continue;
@@ -51,7 +55,8 @@ export class SubmitLeaveHandler implements IActionHandler {
               appId,
               {
                 isGroup: false,
-                agent: context.activity.recipient || { id: `28:${appId}` },
+                bot: botRecipient,
+                agent: botRecipient,
                 members: [{ id: manager.teamsUserId }],
                 tenantId: context.activity.conversation?.tenantId,
               },
