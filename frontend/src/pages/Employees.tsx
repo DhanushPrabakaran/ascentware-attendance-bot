@@ -214,7 +214,7 @@ export default function Employees() {
                 <div>
                   <label className="block text-sm font-semibold text-secondary/80 mb-2">Select Managers</label>
                   <div className="space-y-2 bg-background border border-borderBase rounded-lg p-3 max-h-48 overflow-y-auto">
-                    {employees.filter(e => e.id !== formData.id).map(emp => (
+                    {employees.map(emp => (
                       <label key={emp.email} className="flex items-center space-x-3 cursor-pointer">
                         <input 
                           type="checkbox" 
@@ -225,7 +225,7 @@ export default function Employees() {
                         <span className="text-sm font-medium text-secondary">{emp.name} <span className="text-secondary/40">({emp.email})</span></span>
                       </label>
                     ))}
-                    {employees.length <= (isEditing ? 1 : 0) && <span className="text-sm text-secondary/40 italic">No other employees available.</span>}
+                    {employees.length === 0 && <span className="text-sm text-secondary/40 italic">No employees available.</span>}
                   </div>
                 </div>
                 <div>
