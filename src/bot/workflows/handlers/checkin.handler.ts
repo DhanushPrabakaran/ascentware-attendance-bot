@@ -21,7 +21,10 @@ export class CheckInHandler implements IActionHandler {
 
     const attendance = await BackendService.checkIn(context.activity.from.id);
     const employeeName = context.activity.from.name || 'An employee';
-    await BotHelper.notifyGroupChat(context, `✅ **${employeeName}** has just checked in for the day.`);
+    await BotHelper.notifyGroupChat(
+      context,
+      `✅ **${employeeName}** has just checked in for the day.`,
+    );
 
     const attachment = PlanTasksCard.getCard(attendance.id);
     const result: HandlerResult = {

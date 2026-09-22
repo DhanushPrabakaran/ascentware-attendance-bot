@@ -16,11 +16,14 @@ export class ApproveLeaveHandler implements IActionHandler {
   ): Promise<HandlerResult> {
     const leaveId = value.leaveId;
     await BackendService.updateLeaveStatus(leaveId, 'APPROVED');
-    
+
     try {
       const leave = await BackendService.getLeave(leaveId);
       if (leave && leave.employee) {
-        await BotHelper.notifyGroupChat(context, `✅ Leave Request Approved for **${leave.employee.name}**\n*Reason: ${leave.reason}*`);
+        await BotHelper.notifyGroupChat(
+          context,
+          `✅ Leave Request Approved for **${leave.employee.name}**\n*Reason: ${leave.reason}*`,
+        );
       }
     } catch (e) {
       console.error(e);

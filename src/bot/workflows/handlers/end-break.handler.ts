@@ -16,9 +16,12 @@ export class EndBreakHandler implements IActionHandler {
     replyToId?: string,
   ): Promise<HandlerResult> {
     await BackendService.endBreak(value.attendanceId);
-    
+
     const employeeName = context.activity.from.name || 'An employee';
-    await BotHelper.notifyGroupChat(context, `💻 **${employeeName}** is back from break.`);
+    await BotHelper.notifyGroupChat(
+      context,
+      `💻 **${employeeName}** is back from break.`,
+    );
 
     return {
       activities: [
@@ -30,7 +33,9 @@ export class EndBreakHandler implements IActionHandler {
         },
         {
           type: 'message',
-          attachments: [CardBuilder.getWorkingCard(value.attendanceId, employeeName)],
+          attachments: [
+            CardBuilder.getWorkingCard(value.attendanceId, employeeName),
+          ],
         },
       ],
       deleteReplyToId: true,

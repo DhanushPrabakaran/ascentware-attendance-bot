@@ -171,7 +171,7 @@ export class CardBuilder {
           type: 'TextBlock',
           text: 'Status: In the Zone (Working)',
           isSubtle: true,
-        }
+        },
       ],
       actions: [
         {
@@ -250,7 +250,14 @@ export class CardBuilder {
     });
   }
 
-  static getLeaveApprovalCard(leaveId: string, employeeName: string, leaveType: string, startDate: string, endDate: string, reason: string) {
+  static getLeaveApprovalCard(
+    leaveId: string,
+    employeeName: string,
+    leaveType: string,
+    startDate: string,
+    endDate: string,
+    reason: string,
+  ) {
     return CardFactory.adaptiveCard({
       $schema: 'http://adaptivecards.io/schemas/adaptive-card.json',
       type: 'AdaptiveCard',
@@ -270,8 +277,8 @@ export class CardBuilder {
             { title: 'Type:', value: leaveType },
             { title: 'Dates:', value: `${startDate} to ${endDate}` },
             { title: 'Reason:', value: reason },
-          ]
-        }
+          ],
+        },
       ],
       actions: [
         {

@@ -8,12 +8,12 @@ import { CardBuilder } from '../../cards/CardBuilder';
 
 @Injectable()
 export class ApplyLeaveHandler implements IActionHandler {
-  async execute(
+  execute(
     context: TurnContext,
     value: any,
     replyToId?: string,
   ): Promise<HandlerResult> {
-    return {
+    return Promise.resolve({
       activities: [
         {
           type: 'message',
@@ -22,6 +22,6 @@ export class ApplyLeaveHandler implements IActionHandler {
       ],
       deleteReplyToId: true,
       markConsumed: true,
-    };
+    });
   }
 }

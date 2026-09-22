@@ -8,12 +8,12 @@ import { CardBuilder } from '../../cards/CardBuilder';
 
 @Injectable()
 export class CancelPlanTasksHandler implements IActionHandler {
-  async execute(
+  execute(
     context: TurnContext,
     value: any,
     replyToId?: string,
   ): Promise<HandlerResult> {
-    return {
+    return Promise.resolve({
       activities: [
         {
           type: 'message',
@@ -26,7 +26,12 @@ export class CancelPlanTasksHandler implements IActionHandler {
         },
         {
           type: 'message',
-          attachments: [CardBuilder.getWorkingCard(value.attendanceId, context.activity.from?.name || 'Bestie')],
+          attachments: [
+            CardBuilder.getWorkingCard(
+              value.attendanceId,
+              context.activity.from?.name || 'Bestie',
+            ),
+          ],
         },
       ],
       deleteReplyToId: true,
@@ -35,6 +40,6 @@ export class CancelPlanTasksHandler implements IActionHandler {
         { actionKey: value.attendanceId + '_startBreak', activityId: '' },
         { actionKey: value.attendanceId + '_checkOut', activityId: '' },
       ],
-    };
+    });
   }
 }

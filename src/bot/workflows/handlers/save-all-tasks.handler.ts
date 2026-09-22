@@ -39,7 +39,9 @@ export class SaveAllTasksHandler implements IActionHandler {
     // Validation removed as per user request
     if (tasks.length === 0 && permissionMinutes === 0) {
       const errorMsg = `You must provide at least one task or permission.`;
-      const validationErrorText = MessageFactory.text(`Validation Error: ${errorMsg}`);
+      const validationErrorText = MessageFactory.text(
+        `Validation Error: ${errorMsg}`,
+      );
       return {
         activities: [
           validationErrorText,
@@ -79,7 +81,12 @@ export class SaveAllTasksHandler implements IActionHandler {
         },
         {
           type: 'message',
-          attachments: [CardBuilder.getWorkingCard(value.attendanceId, context.activity.from?.name || 'Bestie')],
+          attachments: [
+            CardBuilder.getWorkingCard(
+              value.attendanceId,
+              context.activity.from?.name || 'Bestie',
+            ),
+          ],
         },
       ],
       deleteReplyToId: true,

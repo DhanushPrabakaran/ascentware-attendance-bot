@@ -3,18 +3,18 @@ import { BackendService } from './services/BackendService';
 import axios from 'axios';
 
 export class BotHelper {
-  static async getRandomQuote(): Promise<string> {
+  static getRandomQuote(): string {
     const quotes = [
       "No cap, you're gonna crush it today.",
       "Main character energy activated. Let's get this bread.",
-      "Time to lock in and secure the bag.",
-      "Big brain moves only today.",
-      "You passed the vibe check. Have a great shift!",
-      "Stay hydrated, stay focused, and pop off today.",
+      'Time to lock in and secure the bag.',
+      'Big brain moves only today.',
+      'You passed the vibe check. Have a great shift!',
+      'Stay hydrated, stay focused, and pop off today.',
       "We're entering our productive era.",
       "Grind never stops, but don't forget to touch grass later.",
       "W work ethic. Let's go!",
-      "Manifesting an easy, breezy workday for you."
+      'Manifesting an easy, breezy workday for you.',
     ];
     const randomQuote = quotes[Math.floor(Math.random() * quotes.length)];
     return `_"${randomQuote}"_`;
@@ -23,26 +23,34 @@ export class BotHelper {
   static async notifyGroupChat(context: TurnContext, message: string) {
     try {
       const settings = await BackendService.getSettings();
-      const groupChatId = settings?.commonGroupId || '19:adc81e9132dd45e6b3dfc769a8b4e2ad@thread.v2';
-      
-      const appId = process.env.CLIENT_ID || process.env.CLIENTID || process.env.MicrosoftAppId || '';
+      const groupChatId =
+        settings?.commonGroupId ||
+        '19:adc81e9132dd45e6b3dfc769a8b4e2ad@thread.v2';
+
+      const appId =
+        process.env.CLIENT_ID ||
+        process.env.CLIENTID ||
+        process.env.MicrosoftAppId ||
+        '';
       const adapter = context.adapter as CloudAdapter;
 
-      const reference: any = TurnContext.getConversationReference(context.activity);
-      
+      const reference: any = TurnContext.getConversationReference(
+        context.activity,
+      );
+
       // Override the conversation ID to point to the group chat
       reference.conversation = {
         id: groupChatId,
         isGroup: true,
         conversationType: 'groupChat',
-        tenantId: context.activity.conversation?.tenantId
+        tenantId: context.activity.conversation?.tenantId,
       };
-      
+
       // @microsoft/agents-activity reads 'agent' instead of 'bot' for continuation activities
       if (reference.bot) {
         reference.agent = reference.bot;
       }
-      
+
       // Delete user so we aren't targeting the individual user's thread
       delete reference.user;
 
@@ -50,16 +58,20 @@ export class BotHelper {
       // expects 3 arguments at runtime, but inherits 2-argument typings from botbuilder.
       await (adapter as any).continueConversation(
         appId,
-        reference as any,
+        reference,
         async (tContext: TurnContext) => {
           await tContext.sendActivity(message);
-        }
+        },
       );
     } catch (err: any) {
       console.error('Failed to notify group chat:', err);
       try {
-        await context.sendActivity(`Failed to notify group chat: ${err.message || err.toString()}`);
-      } catch (e) {}
+        await context.sendActivity(
+          `Failed to notify group chat: ${err.message || err.toString()}`,
+        );
+      } catch (e) {
+        // Best-effort: if we can't even tell the user the notification failed, there's nothing more to do.
+      }
     }
   }
 }

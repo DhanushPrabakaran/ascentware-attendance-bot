@@ -10,14 +10,14 @@ import { BotHelper } from '../../BotHelper';
 
 @Injectable()
 export class CancelLeaveHandler implements IActionHandler {
-  async execute(
+  execute(
     context: TurnContext,
     value: any,
     replyToId?: string,
   ): Promise<HandlerResult> {
     const employeeName = context.activity.from?.name || 'Bestie';
-    const quote = await BotHelper.getRandomQuote();
-    return {
+    const quote = BotHelper.getRandomQuote();
+    return Promise.resolve({
       activities: [
         {
           type: 'message',
@@ -26,6 +26,6 @@ export class CancelLeaveHandler implements IActionHandler {
       ],
       deleteReplyToId: true,
       markConsumed: true,
-    };
+    });
   }
 }

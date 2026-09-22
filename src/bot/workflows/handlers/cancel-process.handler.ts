@@ -7,20 +7,20 @@ import {
 
 @Injectable()
 export class CancelProcessHandler implements IActionHandler {
-  async execute(
+  execute(
     context: TurnContext,
     value: any,
     replyToId?: string,
   ): Promise<HandlerResult> {
-    return {
+    return Promise.resolve({
       activities: [
         {
           type: 'message',
           text: 'Process cancelled.',
-        }
+        },
       ],
       deleteReplyToId: true,
       markConsumed: true,
-    };
+    });
   }
 }

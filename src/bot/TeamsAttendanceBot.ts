@@ -38,9 +38,9 @@ export class TeamsAttendanceBot {
     if (!employee) {
       const aadObjectId = context.activity.from?.aadObjectId;
       const name = context.activity.from?.name || 'Unknown User';
-      
-      let generatedEmail = aadObjectId 
-        ? `${aadObjectId}@ascentware.internal` 
+
+      let generatedEmail = aadObjectId
+        ? `${aadObjectId}@ascentware.internal`
         : `${teamsUserId.replace(/[^a-zA-Z0-9]/g, '')}@ascentware.internal`;
 
       try {
@@ -53,24 +53,29 @@ export class TeamsAttendanceBot {
           }
         }
       } catch (err: any) {
-        console.log('[TeamsBot] Failed to get member email from TeamsInfo', err.message);
+        console.log(
+          '[TeamsBot] Failed to get member email from TeamsInfo',
+          err.message,
+        );
       }
 
       try {
         await BackendService.linkTeamsUserId(generatedEmail, teamsUserId, name);
-        
-        // Since we did this completely silently and automatically, 
+
+        // Since we did this completely silently and automatically,
         // we can just return true and let them continue immediately!
         return true;
       } catch (e) {
         console.error('[TeamsBot] Failed to auto-link using internal email', e);
         await context.sendActivity(
-          MessageFactory.text("Error automatically linking your account. Please contact your administrator.")
+          MessageFactory.text(
+            'Error automatically linking your account. Please contact your administrator.',
+          ),
         );
         return false;
       }
     }
-    
+
     return true;
   }
 
@@ -153,12 +158,17 @@ export class TeamsAttendanceBot {
     app.onMessage(/.*/, async (context, state) => {
       if (!(await this.ensureAuthenticated(context as any))) return;
 
-      const userState = await BackendService.getStatus(context.activity.from?.id || '');
+      const userState = await BackendService.getStatus(
+        context.activity.from?.id || '',
+      );
       const employeeName = context.activity.from?.name || 'Bestie';
-      const quote = await BotHelper.getRandomQuote();
+      const quote = BotHelper.getRandomQuote();
       let card;
 
-      if (userState.status === 'not_checked_in' || userState.status === 'checked_out') {
+      if (
+        userState.status === 'not_checked_in' ||
+        userState.status === 'checked_out'
+      ) {
         card = CardBuilder.getCheckInCard(employeeName, quote);
       } else if (userState.status === 'on_break') {
         card = CardBuilder.getOnBreakCard(userState.attendanceId, employeeName);

@@ -89,11 +89,13 @@ export class AdminController {
   }
 
   @Post('employees/link')
-  async linkEmployee(@Body() data: { email: string; teamsUserId: string; name?: string }) {
+  async linkEmployee(
+    @Body() data: { email: string; teamsUserId: string; name?: string },
+  ) {
     let emp = await this.prisma.employee.findUnique({
       where: { email: data.email },
     });
-    
+
     if (!emp) {
       emp = await this.prisma.employee.create({
         data: {
@@ -160,7 +162,7 @@ export class AdminController {
   async getLeave(@Param('id') id: string) {
     return this.prisma.leave.findUnique({
       where: { id },
-      include: { employee: true }
+      include: { employee: true },
     });
   }
 
@@ -171,7 +173,7 @@ export class AdminController {
   ) {
     return this.prisma.leave.update({
       where: { id },
-      data: { status }
+      data: { status },
     });
   }
 }

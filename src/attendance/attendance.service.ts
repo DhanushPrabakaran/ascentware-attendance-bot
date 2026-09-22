@@ -9,7 +9,8 @@ export class AttendanceService {
     const employee = await this.prisma.employee.findUnique({
       where: { teamsUserId },
     });
-    if (!employee) return { status: 'not_checked_in', employeeId: null, attendanceId: null };
+    if (!employee)
+      return { status: 'not_checked_in', employeeId: null, attendanceId: null };
 
     // Get the most recent attendance for today (or just the most recent overall)
     const today = new Date();
@@ -24,7 +25,11 @@ export class AttendanceService {
     });
 
     if (!attendance) {
-      return { status: 'not_checked_in', employeeId: employee.id, attendanceId: null };
+      return {
+        status: 'not_checked_in',
+        employeeId: employee.id,
+        attendanceId: null,
+      };
     }
 
     return {

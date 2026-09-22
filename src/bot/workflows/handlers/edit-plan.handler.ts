@@ -29,21 +29,25 @@ export class EditPlanHandler implements IActionHandler {
       if (i > 5) return; // Adaptive card supports up to 5 tasks
       previousValues[`taskName_${i}`] = task.taskName;
       previousValues[`priority_${i}`] = task.priority;
-      previousValues[`estimatedMinutes_${i}`] = task.estimatedMinutes.toString();
+      previousValues[`estimatedMinutes_${i}`] =
+        task.estimatedMinutes.toString();
     });
 
     const attendance = await this.prisma.attendance.findUnique({
       where: { id: attendanceId },
     });
     if (attendance) {
-      previousValues['permissionMinutes'] = attendance.permissionMinutes.toString();
+      previousValues['permissionMinutes'] =
+        attendance.permissionMinutes.toString();
     }
 
     return {
       activities: [
         {
           type: 'message',
-          attachments: [PlanTasksCard.getCard(attendanceId, undefined, previousValues)],
+          attachments: [
+            PlanTasksCard.getCard(attendanceId, undefined, previousValues),
+          ],
         },
       ],
       deleteReplyToId: true,

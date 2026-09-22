@@ -21,7 +21,12 @@ export class SubmitLeaveHandler implements IActionHandler {
         activities: [
           {
             type: 'message',
-            attachments: [CardBuilder.getLeaveRequestCard('Please fill all fields to submit a leave request.', value)],
+            attachments: [
+              CardBuilder.getLeaveRequestCard(
+                'Please fill all fields to submit a leave request.',
+                value,
+              ),
+            ],
           },
         ],
         deleteReplyToId: true,
@@ -30,20 +35,31 @@ export class SubmitLeaveHandler implements IActionHandler {
     }
 
     try {
-      const leave = await BackendService.applyLeave(context.activity.from.id, `[${leaveType}] ${startDate} to ${endDate}: ${reason}`);
+      const leave = await BackendService.applyLeave(
+        context.activity.from.id,
+        `[${leaveType}] ${startDate} to ${endDate}: ${reason}`,
+      );
 
       // Notify managers
       try {
-        const managers = await BackendService.getManagers(context.activity.from.id);
-        
+        const managers = await BackendService.getManagers(
+          context.activity.from.id,
+        );
+
         if (managers && managers.length > 0) {
-          let appId = process.env.CLIENT_ID || process.env.CLIENTID || process.env.MicrosoftAppId || '';
+          let appId =
+            process.env.CLIENT_ID ||
+            process.env.CLIENTID ||
+            process.env.MicrosoftAppId ||
+            '';
           if (!appId && context.activity.recipient?.id) {
             appId = context.activity.recipient.id.replace('28:', '');
           }
           const adapter = context.adapter as any;
           const employeeName = context.activity.from.name || 'An employee';
-          const botRecipient = context.activity.recipient || { id: `28:${appId}` };
+          const botRecipient = context.activity.recipient || {
+            id: `28:${appId}`,
+          };
 
           // Find the connector client in the turn state to bypass CloudAdapter scope bugs
           let connectorClient: any;
@@ -55,37 +71,54 @@ export class SubmitLeaveHandler implements IActionHandler {
           }
 
           if (!connectorClient) {
-            throw new Error("Could not find ConnectorClient in TurnContext state");
+            throw new Error(
+              'Could not find ConnectorClient in TurnContext state',
+            );
           }
 
           for (const manager of managers) {
             if (!manager.teamsUserId) continue;
 
-            const conversationResponse = await connectorClient.createConversation({
-              isGroup: false,
-              bot: botRecipient,
-              members: [{ id: manager.teamsUserId }],
-              tenantId: context.activity.conversation?.tenantId
-            });
+            const conversationResponse =
+              await connectorClient.createConversation({
+                isGroup: false,
+                bot: botRecipient,
+                members: [{ id: manager.teamsUserId }],
+                tenantId: context.activity.conversation?.tenantId,
+              });
 
             await connectorClient.sendToConversation(conversationResponse.id, {
               type: 'message',
               attachments: [
-                CardBuilder.getLeaveApprovalCard(leave.id, employeeName, leaveType, startDate, endDate, reason)
-              ]
+                CardBuilder.getLeaveApprovalCard(
+                  leave.id,
+                  employeeName,
+                  leaveType,
+                  startDate,
+                  endDate,
+                  reason,
+                ),
+              ],
             });
           }
         }
       } catch (err: any) {
         console.error('Failed to notify managers:', err);
-        await context.sendActivity(`Failed to notify managers: ${err.message || err.toString()}`);
+        await context.sendActivity(
+          `Failed to notify managers: ${err.message || err.toString()}`,
+        );
       }
 
       return {
         activities: [
           {
             type: 'message',
-            attachments: [CardBuilder.getReadOnlyReceiptCard('Leave Submitted', 'Your leave application was submitted successfully. Your manager will be notified.')],
+            attachments: [
+              CardBuilder.getReadOnlyReceiptCard(
+                'Leave Submitted',
+                'Your leave application was submitted successfully. Your manager will be notified.',
+              ),
+            ],
           },
         ],
         deleteReplyToId: true,
