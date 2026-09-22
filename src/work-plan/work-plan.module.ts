@@ -5,5 +5,6 @@ import { WorkPlanController } from './work-plan.controller';
 @Module({
   controllers: [WorkPlanController],
   providers: [WorkPlanService],
+  exports: [WorkPlanService],
 })
 export class WorkPlanModule {}

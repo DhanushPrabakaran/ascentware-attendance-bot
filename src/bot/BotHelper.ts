@@ -1,8 +1,11 @@
+import { Injectable } from '@nestjs/common';
 import { TurnContext, CloudAdapter } from 'botbuilder';
-import { BackendService } from './services/BackendService';
-import axios from 'axios';
+import { AdminService } from '../admin/admin.service';
 
+@Injectable()
 export class BotHelper {
+  constructor(private readonly adminService: AdminService) {}
+
   static getRandomQuote(): string {
     const quotes = [
       "No cap, you're gonna crush it today.",
@@ -20,11 +23,11 @@ export class BotHelper {
     return `_"${randomQuote}"_`;
   }
 
-  static async notifyGroupChat(context: TurnContext, message: string) {
+  async notifyGroupChat(context: TurnContext, message: string) {
     try {
-      const settings = await BackendService.getSettings();
+      const settings = await this.adminService.getSettings();
       const groupChatId =
-        settings?.commonGroupId ||
+        settings.commonGroupId ||
         '19:adc81e9132dd45e6b3dfc769a8b4e2ad@thread.v2';
 
       const appId =

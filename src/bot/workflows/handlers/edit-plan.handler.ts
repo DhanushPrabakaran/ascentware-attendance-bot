@@ -1,15 +1,19 @@
 import { Injectable } from '@nestjs/common';
 import { TurnContext } from 'botbuilder';
-import {
-  IActionHandler,
-  HandlerResult,
-} from '../interfaces/action-handler.interface';
+import { HandlerResult } from '../interfaces/action-handler.interface';
+import { BaseActionHandler } from './base-action.handler';
+import { WorkPlanService } from '../../../work-plan/work-plan.service';
+import { AttendanceService } from '../../../attendance/attendance.service';
 import { PlanTasksCard } from '../../cards/PlanTasksCard';
-import { PrismaService } from '../../../prisma/prisma.service';
 
 @Injectable()
-export class EditPlanHandler implements IActionHandler {
-  constructor(private readonly prisma: PrismaService) {}
+export class EditPlanHandler extends BaseActionHandler {
+  constructor(
+    private readonly workPlanService: WorkPlanService,
+    private readonly attendanceService: AttendanceService,
+  ) {
+    super();
+  }
 
   async execute(
     context: TurnContext,
@@ -18,10 +22,8 @@ export class EditPlanHandler implements IActionHandler {
   ): Promise<HandlerResult> {
     const attendanceId = value.attendanceId;
 
-    const existingTasks = await this.prisma.dailyTask.findMany({
-      where: { attendanceId },
-      orderBy: { id: 'asc' },
-    });
+    const existingTasks =
+      await this.workPlanService.getTasksByAttendanceId(attendanceId);
 
     const previousValues: any = {};
     existingTasks.forEach((task, index) => {
@@ -33,29 +35,24 @@ export class EditPlanHandler implements IActionHandler {
         task.estimatedMinutes.toString();
     });
 
-    const attendance = await this.prisma.attendance.findUnique({
-      where: { id: attendanceId },
-    });
+    const attendance = await this.attendanceService.findById(attendanceId);
     if (attendance) {
       previousValues['permissionMinutes'] =
         attendance.permissionMinutes.toString();
     }
 
-    return {
-      activities: [
-        {
-          type: 'message',
-          attachments: [
-            PlanTasksCard.getCard(attendanceId, undefined, previousValues),
-          ],
-        },
+    return this.respond(
+      [
+        this.cardActivity(
+          PlanTasksCard.getCard(attendanceId, undefined, previousValues),
+        ),
       ],
-      deleteReplyToId: true,
-      markConsumed: true,
-      setActivities: [
-        { actionKey: attendanceId + '_saveAllTasks', activityId: '' },
-        { actionKey: attendanceId + '_cancelPlanTasks', activityId: '' },
-      ],
-    };
+      {
+        setActivities: [
+          { actionKey: attendanceId + '_saveAllTasks', activityId: '' },
+          { actionKey: attendanceId + '_cancelPlanTasks', activityId: '' },
+        ],
+      },
+    );
   }
 }

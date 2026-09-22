@@ -1,26 +1,32 @@
 import { Injectable } from '@nestjs/common';
 import { TurnContext } from 'botbuilder';
-import {
-  IActionHandler,
-  HandlerResult,
-} from '../interfaces/action-handler.interface';
-import { BackendService } from '../../services/BackendService';
+import { LeaveStatus } from '@prisma/client';
+import { HandlerResult } from '../interfaces/action-handler.interface';
+import { BaseActionHandler } from './base-action.handler';
+import { AdminService } from '../../../admin/admin.service';
 import { BotHelper } from '../../BotHelper';
 
 @Injectable()
-export class ApproveLeaveHandler implements IActionHandler {
+export class ApproveLeaveHandler extends BaseActionHandler {
+  constructor(
+    private readonly adminService: AdminService,
+    private readonly botHelper: BotHelper,
+  ) {
+    super();
+  }
+
   async execute(
     context: TurnContext,
     value: any,
     replyToId?: string,
   ): Promise<HandlerResult> {
     const leaveId = value.leaveId;
-    await BackendService.updateLeaveStatus(leaveId, 'APPROVED');
+    await this.adminService.updateLeaveStatus(leaveId, LeaveStatus.APPROVED);
 
     try {
-      const leave = await BackendService.getLeave(leaveId);
+      const leave = await this.adminService.getLeaveById(leaveId);
       if (leave && leave.employee) {
-        await BotHelper.notifyGroupChat(
+        await this.botHelper.notifyGroupChat(
           context,
           `✅ Leave Request Approved for **${leave.employee.name}**\n*Reason: ${leave.reason}*`,
         );
@@ -29,15 +35,8 @@ export class ApproveLeaveHandler implements IActionHandler {
       console.error(e);
     }
 
-    return {
-      activities: [
-        {
-          type: 'message',
-          text: 'Leave request approved successfully.',
-        },
-      ],
-      deleteReplyToId: true,
-      markConsumed: true,
-    };
+    return this.respond([
+      this.textActivity('Leave request approved successfully.'),
+    ]);
   }
 }

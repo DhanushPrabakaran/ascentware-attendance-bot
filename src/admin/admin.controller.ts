@@ -9,15 +9,11 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { AdminService } from './admin.service';
-import { PrismaService } from '../prisma/prisma.service';
 import { LeaveStatus } from '@prisma/client';
 
 @Controller('api/v1/admin')
 export class AdminController {
-  constructor(
-    private readonly adminService: AdminService,
-    private readonly prisma: PrismaService,
-  ) {}
+  constructor(private readonly adminService: AdminService) {}
 
   @Get('settings')
   getSettings() {
@@ -45,38 +41,25 @@ export class AdminController {
   }
 
   @Delete('employees/:id')
-  deleteEmployee(@Param('id') id: string) {
-    return this.adminService.deleteEmployee(id);
+  deactivateEmployee(@Param('id') id: string) {
+    return this.adminService.deactivateEmployee(id);
   }
 
   @Get('employees/teams/:teamsUserId')
   async getEmployeeByTeams(@Param('teamsUserId') teamsUserId: string) {
-    const emp = await this.prisma.employee.findUnique({
-      where: { teamsUserId },
-      include: { shift: true },
-    });
+    const emp = await this.adminService.findEmployeeByTeamsUserId(teamsUserId);
     if (!emp) throw new NotFoundException('Employee not found');
     return emp;
   }
 
   @Get('employees/teams/:teamsUserId/managers')
-  async getManagers(@Param('teamsUserId') teamsUserId: string) {
-    const emp = await this.prisma.employee.findUnique({
-      where: { teamsUserId },
-    });
-    if (!emp) throw new NotFoundException('Employee not found');
-    if (!emp.managerEmails || emp.managerEmails.length === 0) return [];
-    return this.prisma.employee.findMany({
-      where: { email: { in: emp.managerEmails } },
-    });
+  getManagers(@Param('teamsUserId') teamsUserId: string) {
+    return this.adminService.getManagersForTeamsUser(teamsUserId);
   }
 
   @Post('login')
   async login(@Body() data: any) {
-    const settings = await this.prisma.settings.findUnique({
-      where: { id: 'default' },
-    });
-    if (!settings) throw new NotFoundException('Settings not found');
+    const settings = await this.adminService.getSettings();
 
     if (
       data.username === settings.adminUsername &&
@@ -89,27 +72,14 @@ export class AdminController {
   }
 
   @Post('employees/link')
-  async linkEmployee(
+  linkEmployee(
     @Body() data: { email: string; teamsUserId: string; name?: string },
   ) {
-    let emp = await this.prisma.employee.findUnique({
-      where: { email: data.email },
-    });
-
-    if (!emp) {
-      emp = await this.prisma.employee.create({
-        data: {
-          email: data.email,
-          name: data.name || data.email.split('@')[0],
-          role: 'EMPLOYEE',
-        },
-      });
-    }
-
-    return this.prisma.employee.update({
-      where: { id: emp.id },
-      data: { teamsUserId: data.teamsUserId },
-    });
+    return this.adminService.findOrLinkEmployeeByVerifiedEmail(
+      data.email,
+      data.teamsUserId,
+      data.name,
+    );
   }
 
   @Get('shifts')
@@ -133,7 +103,7 @@ export class AdminController {
   }
 
   @Post('leaves')
-  async applyLeave(
+  applyLeave(
     @Body()
     data: {
       teamsUserId: string;
@@ -143,37 +113,24 @@ export class AdminController {
       reason: string;
     },
   ) {
-    const emp = await this.prisma.employee.findUnique({
-      where: { teamsUserId: data.teamsUserId },
-    });
-    if (!emp) throw new NotFoundException('Employee not found');
-    return this.prisma.leave.create({
-      data: {
-        employeeId: emp.id,
-        leaveType: data.leaveType,
-        startDate: new Date(data.startDate),
-        endDate: new Date(data.endDate),
-        reason: data.reason,
-      },
+    return this.adminService.createLeaveForTeamsUser(data.teamsUserId, {
+      leaveType: data.leaveType,
+      startDate: new Date(data.startDate),
+      endDate: new Date(data.endDate),
+      reason: data.reason,
     });
   }
 
   @Get('leaves/:id')
-  async getLeave(@Param('id') id: string) {
-    return this.prisma.leave.findUnique({
-      where: { id },
-      include: { employee: true },
-    });
+  getLeave(@Param('id') id: string) {
+    return this.adminService.getLeaveById(id);
   }
 
   @Put('leaves/:id/status')
-  async updateLeaveStatus(
+  updateLeaveStatus(
     @Param('id') id: string,
     @Body('status') status: LeaveStatus,
   ) {
-    return this.prisma.leave.update({
-      where: { id },
-      data: { status },
-    });
+    return this.adminService.updateLeaveStatus(id, status);
   }
 }

@@ -1,15 +1,17 @@
 import { Injectable } from '@nestjs/common';
 import { TurnContext, MessageFactory } from 'botbuilder';
-import {
-  IActionHandler,
-  HandlerResult,
-} from '../interfaces/action-handler.interface';
-import { BackendService } from '../../services/BackendService';
+import { HandlerResult } from '../interfaces/action-handler.interface';
+import { BaseActionHandler } from './base-action.handler';
+import { WorkPlanService } from '../../../work-plan/work-plan.service';
 import { CardBuilder } from '../../cards/CardBuilder';
 import { PlanTasksCard } from '../../cards/PlanTasksCard';
 
 @Injectable()
-export class SaveAllTasksHandler implements IActionHandler {
+export class SaveAllTasksHandler extends BaseActionHandler {
+  constructor(private readonly workPlanService: WorkPlanService) {
+    super();
+  }
+
   async execute(
     context: TurnContext,
     value: any,
@@ -34,67 +36,51 @@ export class SaveAllTasksHandler implements IActionHandler {
     }
 
     const permissionMinutes = parseInt(value.permissionMinutes, 10) || 0;
-    const grandTotal = totalEstimatedMinutes + permissionMinutes;
 
-    // Validation removed as per user request
     if (tasks.length === 0 && permissionMinutes === 0) {
       const errorMsg = `You must provide at least one task or permission.`;
-      const validationErrorText = MessageFactory.text(
-        `Validation Error: ${errorMsg}`,
-      );
-      return {
-        activities: [
-          validationErrorText,
-          {
-            type: 'message',
-            attachments: [
-              PlanTasksCard.getCard(value.attendanceId, errorMsg, value),
-            ],
-          },
+      return this.respond(
+        [
+          MessageFactory.text(`Validation Error: ${errorMsg}`),
+          this.cardActivity(
+            PlanTasksCard.getCard(value.attendanceId, errorMsg, value),
+          ),
         ],
-        deleteReplyToId: true,
-        markConsumed: true,
+        {
+          setActivities: [
+            { actionKey: value.attendanceId + '_saveAllTasks', activityId: '' },
+          ],
+        },
+      );
+    }
+
+    await this.workPlanService.saveDailyPlan(
+      value.attendanceId,
+      tasks,
+      permissionMinutes,
+    );
+
+    return this.respond(
+      [
+        this.cardActivity(
+          CardBuilder.getReadOnlyReceiptCard(
+            'Day Planned',
+            `Saved ${tasks.length} tasks and ${permissionMinutes} mins of leave.`,
+          ),
+        ),
+        this.cardActivity(
+          CardBuilder.getWorkingCard(
+            value.attendanceId,
+            context.activity.from?.name || 'Bestie',
+          ),
+        ),
+      ],
+      {
         setActivities: [
-          { actionKey: value.attendanceId + '_saveAllTasks', activityId: '' },
+          { actionKey: value.attendanceId + '_startBreak', activityId: '' },
+          { actionKey: value.attendanceId + '_checkOut', activityId: '' },
         ],
-      };
-    }
-
-    if (tasks.length > 0 || permissionMinutes > 0) {
-      await BackendService.saveWorkPlan(
-        value.attendanceId,
-        tasks,
-        permissionMinutes,
-      );
-    }
-
-    return {
-      activities: [
-        {
-          type: 'message',
-          attachments: [
-            CardBuilder.getReadOnlyReceiptCard(
-              'Day Planned',
-              `Saved ${tasks.length} tasks and ${permissionMinutes} mins of leave.`,
-            ),
-          ],
-        },
-        {
-          type: 'message',
-          attachments: [
-            CardBuilder.getWorkingCard(
-              value.attendanceId,
-              context.activity.from?.name || 'Bestie',
-            ),
-          ],
-        },
-      ],
-      deleteReplyToId: true,
-      markConsumed: true,
-      setActivities: [
-        { actionKey: value.attendanceId + '_startBreak', activityId: '' },
-        { actionKey: value.attendanceId + '_checkOut', activityId: '' },
-      ],
-    };
+      },
+    );
   }
 }

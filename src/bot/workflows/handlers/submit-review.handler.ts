@@ -1,15 +1,22 @@
 import { Injectable } from '@nestjs/common';
 import { TurnContext, MessageFactory } from 'botbuilder';
-import {
-  IActionHandler,
-  HandlerResult,
-} from '../interfaces/action-handler.interface';
-import { BackendService } from '../../services/BackendService';
+import { HandlerResult } from '../interfaces/action-handler.interface';
+import { BaseActionHandler } from './base-action.handler';
+import { WorkPlanService } from '../../../work-plan/work-plan.service';
+import { AttendanceService } from '../../../attendance/attendance.service';
 import { CardBuilder } from '../../cards/CardBuilder';
 import { BotHelper } from '../../BotHelper';
 
 @Injectable()
-export class SubmitReviewHandler implements IActionHandler {
+export class SubmitReviewHandler extends BaseActionHandler {
+  constructor(
+    private readonly workPlanService: WorkPlanService,
+    private readonly attendanceService: AttendanceService,
+    private readonly botHelper: BotHelper,
+  ) {
+    super();
+  }
+
   async execute(
     context: TurnContext,
     value: any,
@@ -29,36 +36,25 @@ export class SubmitReviewHandler implements IActionHandler {
     }
 
     if (tasksToUpdate.length > 0) {
-      await BackendService.bulkUpdateTasks(tasksToUpdate);
+      await this.workPlanService.bulkUpdateTaskProgress(tasksToUpdate);
     }
 
-    const result = await BackendService.checkOut(value.attendanceId);
+    const result = await this.attendanceService.checkOut(value.attendanceId);
 
     const employeeName = context.activity.from.name || 'An employee';
-    await BotHelper.notifyGroupChat(
+    await this.botHelper.notifyGroupChat(
       context,
       `👋 **${employeeName}** has checked out for the day.\n*Working Time: ${result.workingMinutes} mins | Break Time: ${result.breakMinutes} mins*`,
     );
 
-    const checkedOutMessage = MessageFactory.text(
-      'You are checked out for the day. See you tomorrow!',
-    );
-
-    return {
-      activities: [
-        {
-          type: 'message',
-          attachments: [
-            CardBuilder.getReadOnlyReceiptCard(
-              'Checked Out',
-              `Working Time: ${result.workingMinutes} mins, Break Time: ${result.breakMinutes} mins`,
-            ),
-          ],
-        },
-        checkedOutMessage,
-      ],
-      deleteReplyToId: true,
-      markConsumed: true,
-    };
+    return this.respond([
+      this.cardActivity(
+        CardBuilder.getReadOnlyReceiptCard(
+          'Checked Out',
+          `Working Time: ${result.workingMinutes} mins, Break Time: ${result.breakMinutes} mins`,
+        ),
+      ),
+      MessageFactory.text('You are checked out for the day. See you tomorrow!'),
+    ]);
   }
 }

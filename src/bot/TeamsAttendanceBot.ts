@@ -2,81 +2,75 @@ import { TurnContext, MessageFactory, TeamsInfo } from 'botbuilder';
 import { AgentApplication, TurnState } from '@microsoft/agents-hosting';
 import { CardBuilder } from './cards/CardBuilder';
 import { WorkflowEngine } from './workflows/workflow.engine';
-import { BackendService } from './services/BackendService';
+import { ActivityTrackerService } from './services/activity-tracker.service';
+import { AttendanceService } from '../attendance/attendance.service';
+import { AdminService } from '../admin/admin.service';
 import { BotHelper } from './BotHelper';
 
 export class TeamsAttendanceBot {
-  public static activityMap: Map<string, string> = new Map();
-  public static consumedIds: Set<string> = new Set();
-  public static processingIds: Set<string> = new Set();
-  private workflowEngine: WorkflowEngine;
+  constructor(
+    private readonly workflowEngine: WorkflowEngine,
+    private readonly activityTracker: ActivityTrackerService,
+    private readonly attendanceService: AttendanceService,
+    private readonly adminService: AdminService,
+  ) {}
 
-  constructor(workflowEngine: WorkflowEngine) {
-    this.workflowEngine = workflowEngine;
-  }
-
-  public static setActivity(key: string, activityId: string) {
-    this.activityMap.set(key, activityId);
-  }
-
-  public static getActivity(key: string): string | undefined {
-    return this.activityMap.get(key);
-  }
-
-  public static markConsumed(activityId: string) {
-    this.consumedIds.add(activityId);
-  }
-
-  public static isConsumed(activityId: string): boolean {
-    return this.consumedIds.has(activityId);
-  }
-
+  /**
+   * Resolves the Teams user to an existing Employee record. Employees are provisioned by
+   * HR/admins, never fabricated here: if a Teams user isn't linked yet, we resolve their
+   * verified corporate email via TeamsInfo and link onto a matching existing record
+   * (case-insensitive). Only when no matching record exists at all do we create one - and
+   * even then it's flagged isProvisional for an admin to reconcile, never silently
+   * indistinguishable from an HR-provisioned row. If we can't resolve a verified email at
+   * all, we refuse to guess and ask the user to contact an admin instead.
+   */
   private async ensureAuthenticated(context: TurnContext): Promise<boolean> {
     const teamsUserId = context.activity.from?.id || '';
-    const employee = await BackendService.getEmployeeByTeamsUserId(teamsUserId);
+    const employee =
+      await this.adminService.findEmployeeByTeamsUserId(teamsUserId);
+    if (employee) return true;
 
-    if (!employee) {
-      const aadObjectId = context.activity.from?.aadObjectId;
-      const name = context.activity.from?.name || 'Unknown User';
+    const name = context.activity.from?.name || 'Unknown User';
+    let resolvedEmail: string | undefined;
 
-      let generatedEmail = aadObjectId
-        ? `${aadObjectId}@ascentware.internal`
-        : `${teamsUserId.replace(/[^a-zA-Z0-9]/g, '')}@ascentware.internal`;
-
-      try {
-        const member = await TeamsInfo.getMember(context, teamsUserId);
-        if (member) {
-          if (member.email) {
-            generatedEmail = member.email;
-          } else if (member.userPrincipalName) {
-            generatedEmail = member.userPrincipalName;
-          }
-        }
-      } catch (err: any) {
-        console.log(
-          '[TeamsBot] Failed to get member email from TeamsInfo',
-          err.message,
-        );
-      }
-
-      try {
-        await BackendService.linkTeamsUserId(generatedEmail, teamsUserId, name);
-
-        // Since we did this completely silently and automatically,
-        // we can just return true and let them continue immediately!
-        return true;
-      } catch (e) {
-        console.error('[TeamsBot] Failed to auto-link using internal email', e);
-        await context.sendActivity(
-          MessageFactory.text(
-            'Error automatically linking your account. Please contact your administrator.',
-          ),
-        );
-        return false;
-      }
+    try {
+      const member = await TeamsInfo.getMember(context, teamsUserId);
+      resolvedEmail = member?.email || member?.userPrincipalName || undefined;
+    } catch (err: any) {
+      console.log(
+        '[TeamsBot] Failed to get member email from TeamsInfo',
+        err.message,
+      );
     }
 
-    return true;
+    if (!resolvedEmail) {
+      console.error(
+        `[TeamsBot] Could not resolve a verified email for Teams user ${teamsUserId}; refusing to auto-create an employee record.`,
+      );
+      await context.sendActivity(
+        MessageFactory.text(
+          "We couldn't verify your account automatically. Please contact your administrator to get linked.",
+        ),
+      );
+      return false;
+    }
+
+    try {
+      await this.adminService.findOrLinkEmployeeByVerifiedEmail(
+        resolvedEmail,
+        teamsUserId,
+        name,
+      );
+      return true;
+    } catch (e) {
+      console.error('[TeamsBot] Failed to link employee by verified email', e);
+      await context.sendActivity(
+        MessageFactory.text(
+          'Error linking your account. Please contact your administrator.',
+        ),
+      );
+      return false;
+    }
   }
 
   public registerHandlers(app: AgentApplication<TurnState>) {
@@ -85,19 +79,19 @@ export class TeamsAttendanceBot {
       value: any,
       replyToId?: string,
     ) => {
-      if (replyToId && TeamsAttendanceBot.isConsumed(replyToId)) {
+      if (replyToId && this.activityTracker.isConsumed(replyToId)) {
         await context.sendActivity(
           MessageFactory.text('This action has already been completed.'),
         );
         return;
       }
 
-      if (replyToId && TeamsAttendanceBot.processingIds.has(replyToId)) {
+      if (replyToId && this.activityTracker.isProcessing(replyToId)) {
         return;
       }
 
       if (replyToId) {
-        TeamsAttendanceBot.processingIds.add(replyToId);
+        this.activityTracker.startProcessing(replyToId);
       }
 
       try {
@@ -113,7 +107,10 @@ export class TeamsAttendanceBot {
             const response = await context.sendActivity(activity);
             if (response && response.id && result.setActivities) {
               for (const mapping of result.setActivities) {
-                TeamsAttendanceBot.setActivity(mapping.actionKey, response.id);
+                this.activityTracker.setActivity(
+                  mapping.actionKey,
+                  response.id,
+                );
               }
             }
           }
@@ -128,7 +125,7 @@ export class TeamsAttendanceBot {
         }
 
         if (result.markConsumed && replyToId) {
-          TeamsAttendanceBot.markConsumed(replyToId);
+          this.activityTracker.markConsumed(replyToId);
         }
         return result;
       } catch (error: any) {
@@ -149,7 +146,7 @@ export class TeamsAttendanceBot {
         );
       } finally {
         if (replyToId) {
-          TeamsAttendanceBot.processingIds.delete(replyToId);
+          this.activityTracker.finishProcessing(replyToId);
         }
       }
       return null;
@@ -158,7 +155,7 @@ export class TeamsAttendanceBot {
     app.onMessage(/.*/, async (context, state) => {
       if (!(await this.ensureAuthenticated(context as any))) return;
 
-      const userState = await BackendService.getStatus(
+      const userState = await this.attendanceService.getStatus(
         context.activity.from?.id || '',
       );
       const employeeName = context.activity.from?.name || 'Bestie';
@@ -171,10 +168,17 @@ export class TeamsAttendanceBot {
       ) {
         card = CardBuilder.getCheckInCard(employeeName, quote);
       } else if (userState.status === 'on_break') {
-        card = CardBuilder.getOnBreakCard(userState.attendanceId, employeeName);
+        // attendanceId is always set alongside a non-"not_checked_in" status - see AttendanceService.getStatus.
+        card = CardBuilder.getOnBreakCard(
+          userState.attendanceId!,
+          employeeName,
+        );
       } else {
         // They are checked_in
-        card = CardBuilder.getWorkingCard(userState.attendanceId, employeeName);
+        card = CardBuilder.getWorkingCard(
+          userState.attendanceId!,
+          employeeName,
+        );
       }
 
       const response = await context.sendActivity({
@@ -183,8 +187,8 @@ export class TeamsAttendanceBot {
       } as any);
 
       if (response && response.id) {
-        TeamsAttendanceBot.setActivity('welcome_checkIn', response.id);
-        TeamsAttendanceBot.setActivity('welcome_applyLeave', response.id);
+        this.activityTracker.setActivity('welcome_checkIn', response.id);
+        this.activityTracker.setActivity('welcome_applyLeave', response.id);
       }
     });
 

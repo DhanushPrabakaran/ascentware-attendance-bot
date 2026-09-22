@@ -1,26 +1,17 @@
 import { Injectable } from '@nestjs/common';
-import { TurnContext, MessageFactory } from 'botbuilder';
-import {
-  IActionHandler,
-  HandlerResult,
-} from '../interfaces/action-handler.interface';
+import { TurnContext } from 'botbuilder';
+import { HandlerResult } from '../interfaces/action-handler.interface';
+import { BaseActionHandler } from './base-action.handler';
 
 @Injectable()
-export class CancelProcessHandler implements IActionHandler {
+export class CancelProcessHandler extends BaseActionHandler {
   execute(
     context: TurnContext,
     value: any,
     replyToId?: string,
   ): Promise<HandlerResult> {
-    return Promise.resolve({
-      activities: [
-        {
-          type: 'message',
-          text: 'Process cancelled.',
-        },
-      ],
-      deleteReplyToId: true,
-      markConsumed: true,
-    });
+    return Promise.resolve(
+      this.respond([this.textActivity('Process cancelled.')]),
+    );
   }
 }

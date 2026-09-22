@@ -5,6 +5,10 @@ import { PrismaService } from '../prisma/prisma.service';
 export class AttendanceService {
   constructor(private prisma: PrismaService) {}
 
+  async findById(attendanceId: string) {
+    return this.prisma.attendance.findUnique({ where: { id: attendanceId } });
+  }
+
   async getStatus(teamsUserId: string) {
     const employee = await this.prisma.employee.findUnique({
       where: { teamsUserId },

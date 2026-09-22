@@ -1,14 +1,16 @@
 import { Injectable } from '@nestjs/common';
-import { TurnContext, MessageFactory } from 'botbuilder';
-import {
-  IActionHandler,
-  HandlerResult,
-} from '../interfaces/action-handler.interface';
-import { BackendService } from '../../services/BackendService';
+import { TurnContext } from 'botbuilder';
+import { HandlerResult } from '../interfaces/action-handler.interface';
+import { BaseActionHandler } from './base-action.handler';
+import { AdminService } from '../../../admin/admin.service';
 import { CardBuilder } from '../../cards/CardBuilder';
 
 @Injectable()
-export class SubmitLeaveHandler implements IActionHandler {
+export class SubmitLeaveHandler extends BaseActionHandler {
+  constructor(private readonly adminService: AdminService) {
+    super();
+  }
+
   async execute(
     context: TurnContext,
     value: any,
@@ -17,32 +19,30 @@ export class SubmitLeaveHandler implements IActionHandler {
     const { leaveType, startDate, endDate, reason } = value;
 
     if (!leaveType || !startDate || !endDate || !reason) {
-      return {
-        activities: [
-          {
-            type: 'message',
-            attachments: [
-              CardBuilder.getLeaveRequestCard(
-                'Please fill all fields to submit a leave request.',
-                value,
-              ),
-            ],
-          },
-        ],
-        deleteReplyToId: true,
-        markConsumed: true,
-      };
+      return this.respond([
+        this.cardActivity(
+          CardBuilder.getLeaveRequestCard(
+            'Please fill all fields to submit a leave request.',
+            value,
+          ),
+        ),
+      ]);
     }
 
     try {
-      const leave = await BackendService.applyLeave(
+      const leave = await this.adminService.createLeaveForTeamsUser(
         context.activity.from.id,
-        `[${leaveType}] ${startDate} to ${endDate}: ${reason}`,
+        {
+          leaveType,
+          startDate: new Date(startDate),
+          endDate: new Date(endDate),
+          reason,
+        },
       );
 
       // Notify managers
       try {
-        const managers = await BackendService.getManagers(
+        const managers = await this.adminService.getManagersForTeamsUser(
           context.activity.from.id,
         );
 
@@ -55,7 +55,6 @@ export class SubmitLeaveHandler implements IActionHandler {
           if (!appId && context.activity.recipient?.id) {
             appId = context.activity.recipient.id.replace('28:', '');
           }
-          const adapter = context.adapter as any;
           const employeeName = context.activity.from.name || 'An employee';
           const botRecipient = context.activity.recipient || {
             id: `28:${appId}`,
@@ -109,32 +108,18 @@ export class SubmitLeaveHandler implements IActionHandler {
         );
       }
 
-      return {
-        activities: [
-          {
-            type: 'message',
-            attachments: [
-              CardBuilder.getReadOnlyReceiptCard(
-                'Leave Submitted',
-                'Your leave application was submitted successfully. Your manager will be notified.',
-              ),
-            ],
-          },
-        ],
-        deleteReplyToId: true,
-        markConsumed: true,
-      };
+      return this.respond([
+        this.cardActivity(
+          CardBuilder.getReadOnlyReceiptCard(
+            'Leave Submitted',
+            'Your leave application was submitted successfully. Your manager will be notified.',
+          ),
+        ),
+      ]);
     } catch (e: any) {
-      return {
-        activities: [
-          {
-            type: 'message',
-            attachments: [CardBuilder.getLeaveRequestCard(e.message, value)],
-          },
-        ],
-        deleteReplyToId: true,
-        markConsumed: true,
-      };
+      return this.respond([
+        this.cardActivity(CardBuilder.getLeaveRequestCard(e.message, value)),
+      ]);
     }
   }
 }
