@@ -51,7 +51,11 @@ export class AdminService {
       role: data.role || 'EMPLOYEE',
       teamsUserId: data.teamsUserId || null,
       managerEmails: data.managerEmails || [],
+      hrEmail: data.hrEmail || null,
       shiftId: data.shiftId || null,
+      passwordHash: data.password
+        ? await bcrypt.hash(data.password, 10)
+        : undefined,
     };
     return this.prisma.employee.create({ data: validData });
   }
@@ -63,7 +67,11 @@ export class AdminService {
       role: data.role,
       teamsUserId: data.teamsUserId || null,
       managerEmails: data.managerEmails || [],
+      hrEmail: data.hrEmail || null,
       shiftId: data.shiftId || null,
+      passwordHash: data.password
+        ? await bcrypt.hash(data.password, 10)
+        : undefined,
     };
     return this.prisma.employee.update({ where: { id }, data: validData });
   }

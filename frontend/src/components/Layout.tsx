@@ -1,13 +1,16 @@
 import React from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { Users, Clock, Settings, LogOut, LayoutDashboard, CalendarOff, FileText } from 'lucide-react';
+import { clearToken } from '../lib/api';
+import { useAuth } from '../lib/auth';
 
 export default function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useAuth();
 
   const handleLogout = () => {
-    localStorage.removeItem('adminEmail');
+    clearToken();
     navigate('/login');
   };
 
@@ -64,7 +67,7 @@ export default function Layout() {
             {navItems.find((i) => i.path === location.pathname)?.name || 'Admin Portal'}
           </h1>
           <div className="text-sm font-medium px-4 py-2 bg-background rounded-full text-tertiary border border-borderBase">
-            {localStorage.getItem('adminEmail')}
+            {user?.name || user?.email}
           </div>
         </header>
         <main className="flex-1 p-8 overflow-y-auto">

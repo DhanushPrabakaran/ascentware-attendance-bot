@@ -1,10 +1,8 @@
-import React, { useEffect, useState } from 'react';
-import { Users, Clock, Activity, Coffee, LogOut, CheckCircle2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Clock, Activity, Coffee, LogOut, CheckCircle2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-
-interface Employee { id: string; name: string; email: string; }
-interface AttendanceRecord { id: string; checkIn: string; checkOut: string | null; status: string; employee: Employee; date: string; }
-interface Leave { id: string; date: string; status: string; employee: Employee; }
+import { api } from '../lib/api';
+import type { Employee, Attendance as AttendanceRecord, Leave } from '../lib/types';
 
 export default function Dashboard() {
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -14,14 +12,16 @@ export default function Dashboard() {
 
   useEffect(() => {
     Promise.all([
-      fetch('/api/v1/admin/employees').then(res => res.json()),
-      fetch('/api/v1/admin/attendances').then(res => res.json()),
-      fetch('/api/v1/admin/leaves').then(res => res.json())
+      api.employees.list(),
+      api.attendance.list(),
+      api.leaves.list(),
     ]).then(([emps, atts, lvs]) => {
       setEmployees(emps);
       const today = new Date().toISOString().split('T')[0];
-      setAttendances((atts as any[]).filter(a => a.date.startsWith(today)));
-      setLeaves((lvs as any[]).filter(l => l.date.startsWith(today) && l.status === 'APPROVED'));
+      setAttendances(atts.filter((a) => a.date.startsWith(today)));
+      setLeaves(
+        lvs.filter((l) => l.startDate.startsWith(today) && l.status === 'APPROVED'),
+      );
       setLoading(false);
     });
   }, []);

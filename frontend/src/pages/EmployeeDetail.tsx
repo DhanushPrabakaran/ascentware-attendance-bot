@@ -1,35 +1,33 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Clock, CalendarOff, CheckCircle2, XCircle, User, Briefcase, Mail, Activity } from 'lucide-react';
+import { CalendarOff, CheckCircle2, XCircle, User, Briefcase, Mail, Activity, ArrowLeft } from 'lucide-react';
+import { api } from '../lib/api';
+import type { Employee, Attendance, Leave } from '../lib/types';
 
 export default function EmployeeDetail() {
   const { id } = useParams();
-  const [employee, setEmployee] = useState<any>(null);
-  const [attendances, setAttendances] = useState<any[]>([]);
-  const [leaves, setLeaves] = useState<any[]>([]);
+  const [employee, setEmployee] = useState<Employee | null>(null);
+  const [attendances, setAttendances] = useState<Attendance[]>([]);
+  const [leaves, setLeaves] = useState<Leave[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [empRes, attRes, leaveRes] = await Promise.all([
-        fetch('/api/v1/admin/employees'),
-        fetch('/api/v1/admin/attendances'),
-        fetch('/api/v1/admin/leaves')
+      const [empData, attData, leaveData] = await Promise.all([
+        api.employees.list(),
+        api.attendance.list(),
+        api.leaves.list(),
       ]);
-      const empData = await empRes.json();
-      const attData = await attRes.json();
-      const leaveData = await leaveRes.json();
 
-      const currentEmp = empData.find((e: any) => e.id === id);
-      setEmployee(currentEmp);
-
-      setAttendances((attData as any[]).filter(a => a.employee?.id === id || a.employeeId === id));
-      setLeaves((leaveData as any[]).filter(l => l.employee?.id === id || l.employeeId === id));
+      setEmployee(empData.find((e) => e.id === id) || null);
+      setAttendances(attData.filter((a) => a.employeeId === id));
+      setLeaves(leaveData.filter((l) => l.employeeId === id));
     } catch (error) {
       console.error('Failed to fetch data', error);
     }
@@ -48,12 +46,12 @@ export default function EmployeeDetail() {
   }
 
   const sortedAttendances = [...attendances].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  const sortedLeaves = [...leaves].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  
+  const sortedLeaves = [...leaves].sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime());
+
   // Determine current real-time status
   const todayStr = new Date().toISOString().split('T')[0];
   const todaysAtt = sortedAttendances.find(a => a.date.startsWith(todayStr));
-  const todaysLeave = sortedLeaves.find(l => l.date.startsWith(todayStr) && l.status === 'APPROVED');
+  const todaysLeave = sortedLeaves.find(l => l.startDate.startsWith(todayStr) && l.status === 'APPROVED');
   
   let currentStatus = "Absent";
   let statusColor = "text-secondary/40";
@@ -173,7 +171,11 @@ export default function EmployeeDetail() {
                 {sortedLeaves.map(leave => (
                   <div key={leave.id} className="p-4 bg-background rounded-lg border border-borderBase hover:border-borderBase/80 transition-colors">
                     <div className="flex justify-between items-start mb-3">
-                      <span className="text-sm font-bold text-secondary">{new Date(leave.date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                      <span className="text-sm font-bold text-secondary">
+                        {leave.leaveType} · {new Date(leave.startDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                        {' - '}
+                        {new Date(leave.endDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </span>
                       <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border flex items-center gap-1.5
                         ${leave.status === 'APPROVED' ? 'bg-emerald-400/10 text-emerald-400 border-emerald-400/20' : 
                           leave.status === 'REJECTED' ? 'bg-red-500/10 text-red-400 border-red-500/20' : 

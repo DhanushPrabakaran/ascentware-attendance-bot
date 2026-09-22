@@ -1,13 +1,12 @@
 import { useEffect, useState } from 'react';
+import { api } from '../lib/api';
 
 export default function Settings() {
-  const [settings, setSettings] = useState({ commonGroupId: '', autoReject: false });
+  const [settings, setSettings] = useState({ commonGroupId: '' });
   const [saved, setSaved] = useState(false);
 
   const fetchSettings = async () => {
-    const res = await fetch('/api/v1/admin/settings');
-    const data = await res.json();
-    setSettings(data);
+    setSettings(await api.settings.get());
   };
 
   useEffect(() => {
@@ -15,11 +14,7 @@ export default function Settings() {
   }, []);
 
   const handleSave = async () => {
-    await fetch('/api/v1/admin/settings', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(settings)
-    });
+    await api.settings.update(settings);
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
   };

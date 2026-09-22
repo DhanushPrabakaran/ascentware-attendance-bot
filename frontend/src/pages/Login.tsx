@@ -1,46 +1,50 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LayoutDashboard } from 'lucide-react';
+import { api, setToken, ApiError } from '../lib/api';
+import { useAuth } from '../lib/auth';
 
 export default function Login() {
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
+  const { refresh } = useAuth();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!username || !password) return;
+    if (!email || !password) return;
+    setError('');
+    setSubmitting(true);
 
     try {
-      const res = await fetch('/api/v1/admin/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
-      });
-      
-      if (res.ok) {
-        localStorage.setItem('adminEmail', username);
-        navigate('/');
-      } else {
-        setError('Invalid username or password');
-      }
+      const { token } = await api.auth.login(email, password);
+      setToken(token);
+      await refresh();
+      navigate('/');
     } catch (err) {
-      setError('Failed to connect to backend');
+      setError(
+        err instanceof ApiError && err.status === 401
+          ? 'Invalid email or password'
+          : 'Failed to connect to backend',
+      );
+    } finally {
+      setSubmitting(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md flex flex-col items-center">
         <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center mb-4 shadow-sm">
           <LayoutDashboard size={24} className="text-secondary" />
         </div>
         <h2 className="text-center text-3xl font-bold tracking-tight text-gray-900">
-          Ascentware Admin
+          Ascentware
         </h2>
         <p className="mt-2 text-center text-sm text-gray-600">
-          Sign in to manage operations
+          Sign in to manage your attendance
         </p>
       </div>
 
@@ -48,14 +52,16 @@ export default function Login() {
         <div className="bg-white py-8 px-6 shadow-sm border border-gray-200 rounded-xl sm:px-10">
           <form className="space-y-6" onSubmit={handleLogin}>
             <div>
-              <label className="block text-sm font-medium text-gray-700">Username</label>
+              <label className="block text-sm font-medium text-gray-700">Email</label>
               <div className="mt-2">
                 <input
                   required
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
-                  placeholder="admin"
+                  type="email"
+                  autoComplete="username"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary text-base sm:text-sm"
+                  placeholder="you@ascentwarecorp.com"
                 />
               </div>
             </div>
@@ -66,9 +72,10 @@ export default function Login() {
                 <input
                   type="password"
                   required
+                  autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
+                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary text-base sm:text-sm"
                   placeholder="••••••••"
                 />
               </div>
@@ -83,9 +90,10 @@ export default function Login() {
             <div>
               <button
                 type="submit"
-                className="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-secondary bg-primary hover:bg-primaryHover focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors"
+                disabled={submitting}
+                className="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-secondary bg-primary hover:bg-primaryHover focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 transition-colors"
               >
-                Sign in
+                {submitting ? 'Signing in...' : 'Sign in'}
               </button>
             </div>
           </form>

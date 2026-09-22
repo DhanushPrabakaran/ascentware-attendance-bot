@@ -7,33 +7,38 @@ import Shifts from './pages/Shifts';
 import Settings from './pages/Settings';
 import Leaves from './pages/Leaves';
 import Attendance from './pages/Attendance';
-
 import EmployeeDetail from './pages/EmployeeDetail';
+import { AuthProvider, useAuth } from './lib/auth';
+import { getToken } from './lib/api';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const isAdmin = localStorage.getItem('adminEmail');
-  if (!isAdmin) {
+  const { loading } = useAuth();
+  if (!getToken()) {
     return <Navigate to="/login" replace />;
   }
+  // Token present but /me hasn't resolved yet - avoid a flash of a half-authed page.
+  if (loading) return null;
   return <>{children}</>;
 }
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        
-        <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
-          <Route index element={<Dashboard />} />
-          <Route path="employees" element={<Employees />} />
-          <Route path="employees/:id" element={<EmployeeDetail />} />
-          <Route path="shifts" element={<Shifts />} />
-          <Route path="attendance" element={<Attendance />} />
-          <Route path="leaves" element={<Leaves />} />
-          <Route path="settings" element={<Settings />} />
-        </Route>
-      </Routes>
-    </BrowserRouter>
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+
+          <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+            <Route index element={<Dashboard />} />
+            <Route path="employees" element={<Employees />} />
+            <Route path="employees/:id" element={<EmployeeDetail />} />
+            <Route path="shifts" element={<Shifts />} />
+            <Route path="attendance" element={<Attendance />} />
+            <Route path="leaves" element={<Leaves />} />
+            <Route path="settings" element={<Settings />} />
+          </Route>
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   );
 }
