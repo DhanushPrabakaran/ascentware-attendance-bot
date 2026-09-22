@@ -6,19 +6,38 @@ datasource db {
   provider = "postgresql"
 }
 
+enum Role {
+  ADMIN
+  EMPLOYEE
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
 model Employee {
   id            String   @id @default(uuid())
   name          String
   email         String   @unique
   teamsUserId   String?  @unique
-  role          String   @default("EMPLOYEE") // ADMIN, EMPLOYEE
+  role          Role     @default(EMPLOYEE)
   managerEmails String[] // Array of emails this person reports to
+
+  isActive      Boolean   @default(true)
+  deactivatedAt DateTime?
+  isProvisional Boolean   @default(false) // true when auto-created by the bot pending admin review
 
   shiftId String?
   shift   Shift?  @relation(fields: [shiftId], references: [id])
 
   attendances Attendance[]
   leaves      Leave[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Shift {
@@ -27,21 +46,29 @@ model Shift {
   startTime String // e.g. "09:00"
   endTime   String // e.g. "18:00"
   employees Employee[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Leave {
-  id         String   @id @default(uuid())
+  id         String      @id @default(uuid())
   employeeId String
-  employee   Employee @relation(fields: [employeeId], references: [id])
-  date       DateTime @default(now())
+  employee   Employee    @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  leaveType  String
+  startDate  DateTime
+  endDate    DateTime
   reason     String
-  status     String   @default("PENDING")
+  status     LeaveStatus @default(PENDING)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Settings {
   id            String  @id @default("default")
   commonGroupId String?
-  adminEmail    String? @default("dhanushprabakaran@ascentwarecorp.com")
+  adminEmail    String?
   adminUsername String  @default("admin")
   adminPassword String  @default("admin")
 }
@@ -49,7 +76,7 @@ model Settings {
 model Attendance {
   id                String    @id @default(uuid())
   employeeId        String
-  employee          Employee  @relation(fields: [employeeId], references: [id])
+  employee          Employee  @relation(fields: [employeeId], references: [id], onDelete: Restrict)
   date              DateTime  @default(now()) @db.Date
   checkIn           DateTime
   checkOut          DateTime?
@@ -61,21 +88,27 @@ model Attendance {
   breaks       AttendanceBreak[]
   dailyTasks   DailyTask[]
   dailySummary DailySummary?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model AttendanceBreak {
   id           String     @id @default(uuid())
   attendanceId String
-  attendance   Attendance @relation(fields: [attendanceId], references: [id])
+  attendance   Attendance @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
   breakStart   DateTime
   breakEnd     DateTime?
   duration     Int        @default(0) // in minutes
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model DailyTask {
   id               String     @id @default(uuid())
   attendanceId     String
-  attendance       Attendance @relation(fields: [attendanceId], references: [id])
+  attendance       Attendance @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
   date             DateTime   @default(now()) @db.Date
   taskName         String // Can be text or a link
   priority         String     @default("normal")
@@ -83,14 +116,20 @@ model DailyTask {
   timeTakenMinutes Int        @default(0)
   status           String     @default("not_started") // not_started, in_progress, completed
   remarks          String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model DailySummary {
   id            String     @id @default(uuid())
   attendanceId  String     @unique
-  attendance    Attendance @relation(fields: [attendanceId], references: [id])
+  attendance    Attendance @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
   overallStatus String
   blockerType   String?
   remarks       String?
   submittedAt   DateTime   @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

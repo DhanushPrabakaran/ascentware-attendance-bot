@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { LeaveStatus } from '@prisma/client';
 
 @Controller('api/v1/admin')
 export class AdminController {
@@ -130,13 +131,28 @@ export class AdminController {
   }
 
   @Post('leaves')
-  async applyLeave(@Body() data: { teamsUserId: string; reason: string }) {
+  async applyLeave(
+    @Body()
+    data: {
+      teamsUserId: string;
+      leaveType: string;
+      startDate: string;
+      endDate: string;
+      reason: string;
+    },
+  ) {
     const emp = await this.prisma.employee.findUnique({
       where: { teamsUserId: data.teamsUserId },
     });
     if (!emp) throw new NotFoundException('Employee not found');
     return this.prisma.leave.create({
-      data: { employeeId: emp.id, reason: data.reason },
+      data: {
+        employeeId: emp.id,
+        leaveType: data.leaveType,
+        startDate: new Date(data.startDate),
+        endDate: new Date(data.endDate),
+        reason: data.reason,
+      },
     });
   }
 
@@ -149,7 +165,10 @@ export class AdminController {
   }
 
   @Put('leaves/:id/status')
-  async updateLeaveStatus(@Param('id') id: string, @Body('status') status: string) {
+  async updateLeaveStatus(
+    @Param('id') id: string,
+    @Body('status') status: LeaveStatus,
+  ) {
     return this.prisma.leave.update({
       where: { id },
       data: { status }

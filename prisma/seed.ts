@@ -46,13 +46,45 @@ async function main() {
   });
 
   console.log('Seeding employees...');
-  await prisma.employee.create({
+  const admin = await prisma.employee.create({
     data: {
       name: 'Dhanush Prabakaran',
       email: 'dhanushprabakaran@ascentwarecorp.com',
       role: 'ADMIN',
       shiftId: indianShift.id,
       managerEmails: [], // Admin has no managers
+    }
+  });
+
+  await prisma.employee.create({
+    data: {
+      name: 'Sample Employee (IST)',
+      email: 'sample.employee.ist@ascentwarecorp.com',
+      role: 'EMPLOYEE',
+      shiftId: indianShift.id,
+      managerEmails: [admin.email],
+    }
+  });
+
+  await prisma.employee.create({
+    data: {
+      name: 'Sample Employee (CET)',
+      email: 'sample.employee.cet@ascentwarecorp.com',
+      role: 'EMPLOYEE',
+      shiftId: belgiumShift.id,
+      managerEmails: [admin.email],
+    }
+  });
+
+  await prisma.employee.create({
+    data: {
+      name: 'Offboarded Employee',
+      email: 'offboarded.employee@ascentwarecorp.com',
+      role: 'EMPLOYEE',
+      shiftId: indianShift.id,
+      managerEmails: [admin.email],
+      isActive: false,
+      deactivatedAt: new Date(),
     }
   });
 

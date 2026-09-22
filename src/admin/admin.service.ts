@@ -66,7 +66,7 @@ export class AdminService {
   async getLeaves() {
     return this.prisma.leave.findMany({
       include: { employee: true },
-      orderBy: { date: 'desc' },
+      orderBy: { startDate: 'desc' },
     });
   }
 
