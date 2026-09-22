@@ -27,11 +27,14 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    const reports = await this.adminService.getAllReports(employee.email);
+
     const token = this.jwtService.sign({
       sub: employee.id,
       email: employee.email,
       name: employee.name,
       role: employee.role,
+      isManager: reports.length > 0,
     });
 
     return { token };

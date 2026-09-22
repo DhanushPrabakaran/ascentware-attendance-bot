@@ -4,8 +4,9 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { LeaveStatus } from '@prisma/client';
+import { LeaveStatus, Role, Employee } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 
 @Injectable()
 export class AdminService {
@@ -32,8 +33,11 @@ export class AdminService {
     });
   }
 
-  async getEmployees() {
-    return this.prisma.employee.findMany({ include: { shift: true } });
+  async getEmployees(visibleIds: string[] | 'ALL' = 'ALL') {
+    return this.prisma.employee.findMany({
+      where: visibleIds === 'ALL' ? undefined : { id: { in: visibleIds } },
+      include: { shift: true },
+    });
   }
 
   async createEmployee(data: any) {
@@ -93,9 +97,9 @@ export class AdminService {
     });
   }
 
-  async getManagersForTeamsUser(teamsUserId: string) {
+  async getManagersForEmployee(employeeId: string) {
     const emp = await this.prisma.employee.findUnique({
-      where: { teamsUserId },
+      where: { id: employeeId },
     });
     if (!emp || !emp.managerEmails || emp.managerEmails.length === 0) {
       return [];
@@ -103,6 +107,114 @@ export class AdminService {
     return this.prisma.employee.findMany({
       where: { email: { in: emp.managerEmails } },
     });
+  }
+
+  async getManagersForTeamsUser(teamsUserId: string) {
+    const emp = await this.prisma.employee.findUnique({
+      where: { teamsUserId },
+    });
+    if (!emp) return [];
+    return this.getManagersForEmployee(emp.id);
+  }
+
+  /**
+   * All direct and indirect reports of `managerEmail`. managerEmails lives on the
+   * REPORT's own row ("I report to X"), so "who reports to me" is a reverse lookup,
+   * walked iteratively (BFS) to also pick up indirect reports (a "super manager" sees
+   * their whole sub-org for free, since that's purely a property of the reporting
+   * chain, not a separate role). Small/mid-size org chart - O(depth) queries is fine,
+   * no closure table or recursive CTE needed.
+   */
+  async getAllReports(managerEmail: string): Promise<Employee[]> {
+    const found: Employee[] = [];
+    // Seeded with the root itself so a cycle in bad data (e.g. two employees
+    // accidentally listing each other as manager) can't loop back and count the
+    // root - or an already-counted ancestor - as their own report.
+    const visitedEmails = new Set<string>([managerEmail]);
+    let frontier = [managerEmail];
+    let depth = 0;
+
+    while (frontier.length > 0 && depth < 25) {
+      const directReports = await this.prisma.employee.findMany({
+        where: { managerEmails: { hasSome: frontier } },
+      });
+      const next: string[] = [];
+      for (const emp of directReports) {
+        if (visitedEmails.has(emp.email)) continue; // already counted - convergent chain or a cycle
+        visitedEmails.add(emp.email);
+        found.push(emp);
+        next.push(emp.email);
+      }
+      frontier = next;
+      depth++;
+    }
+    return found;
+  }
+
+  async isManagerOf(
+    managerEmail: string,
+    targetEmployeeId: string,
+  ): Promise<boolean> {
+    const reports = await this.getAllReports(managerEmail);
+    return reports.some((e) => e.id === targetEmployeeId);
+  }
+
+  async isHrOf(hrEmail: string, targetEmployeeId: string): Promise<boolean> {
+    const match = await this.prisma.employee.findFirst({
+      where: { id: targetEmployeeId, hrEmail },
+    });
+    return !!match;
+  }
+
+  async getHrAssignedEmployees(hrEmail: string) {
+    return this.prisma.employee.findMany({
+      where: { hrEmail },
+      include: { shift: true },
+    });
+  }
+
+  /** ADMIN sees everything; everyone else sees themselves + their reports (+ HR's assigned employees). */
+  async getVisibleEmployeeIds(
+    requester: JwtPayload,
+  ): Promise<string[] | 'ALL'> {
+    if (requester.role === Role.ADMIN) return 'ALL';
+
+    const ids = new Set<string>([requester.sub]);
+    (await this.getAllReports(requester.email)).forEach((e) => ids.add(e.id));
+    if (requester.role === Role.HR) {
+      (await this.getHrAssignedEmployees(requester.email)).forEach((e) =>
+        ids.add(e.id),
+      );
+    }
+    return Array.from(ids);
+  }
+
+  async canViewEmployeeData(
+    requester: JwtPayload,
+    targetEmployeeId: string,
+  ): Promise<boolean> {
+    if (requester.role === Role.ADMIN || requester.sub === targetEmployeeId) {
+      return true;
+    }
+    if (await this.isManagerOf(requester.email, targetEmployeeId)) {
+      return true;
+    }
+    if (
+      requester.role === Role.HR &&
+      (await this.isHrOf(requester.email, targetEmployeeId))
+    ) {
+      return true;
+    }
+    return false;
+  }
+
+  /** HR is deliberately excluded - HR watches leave outcomes, doesn't approve them. */
+  async canManageLeave(
+    requester: JwtPayload,
+    leave: { employeeId: string },
+  ): Promise<boolean> {
+    if (requester.role === Role.ADMIN) return true;
+    return this.isManagerOf(requester.email, leave.employeeId);
   }
 
   /**
@@ -144,8 +256,10 @@ export class AdminService {
     return this.prisma.shift.create({ data });
   }
 
-  async getLeaves() {
+  async getLeaves(visibleIds: string[] | 'ALL' = 'ALL') {
     return this.prisma.leave.findMany({
+      where:
+        visibleIds === 'ALL' ? undefined : { employeeId: { in: visibleIds } },
       include: { employee: true },
       orderBy: { startDate: 'desc' },
     });
@@ -198,8 +312,10 @@ export class AdminService {
     });
   }
 
-  async getAttendances() {
+  async getAttendances(visibleIds: string[] | 'ALL' = 'ALL') {
     return this.prisma.attendance.findMany({
+      where:
+        visibleIds === 'ALL' ? undefined : { employeeId: { in: visibleIds } },
       include: { employee: true, dailyTasks: true, breaks: true },
       orderBy: { date: 'desc' },
     });
