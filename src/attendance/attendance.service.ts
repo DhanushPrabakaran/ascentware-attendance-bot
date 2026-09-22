@@ -1,4 +1,8 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -44,17 +48,15 @@ export class AttendanceService {
   }
 
   async checkIn(teamsUserId: string) {
-    let employee = await this.prisma.employee.findUnique({
+    // Employees are provisioned by HR/admins (or linked via the bot's verified-email
+    // flow) - never fabricated here. See TeamsAttendanceBot.ensureAuthenticated().
+    const employee = await this.prisma.employee.findUnique({
       where: { teamsUserId },
     });
     if (!employee) {
-      employee = await this.prisma.employee.create({
-        data: {
-          name: 'Teams User',
-          email: `${teamsUserId}@company.com`,
-          teamsUserId,
-        },
-      });
+      throw new NotFoundException(
+        'No employee is linked to this Teams user yet. Contact an administrator.',
+      );
     }
 
     return this.prisma.attendance.create({

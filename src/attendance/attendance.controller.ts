@@ -11,8 +11,8 @@ export class AttendanceController {
   }
 
   @Post('check-in')
-  checkIn(@Body('employeeId') employeeId: string) {
-    return this.attendanceService.checkIn(employeeId);
+  checkIn(@Body('teamsUserId') teamsUserId: string) {
+    return this.attendanceService.checkIn(teamsUserId);
   }
 
   @Post('check-out')
