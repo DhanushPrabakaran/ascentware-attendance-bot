@@ -35,6 +35,10 @@ export default tseslint.config(
       '@typescript-eslint/no-unused-vars': 'off',
       '@typescript-eslint/no-floating-promises': 'warn',
       '@typescript-eslint/no-unsafe-argument': 'warn',
+      // False-positives on `expect(prisma.model.method).toHaveBeenCalledWith(...)` with
+      // jest-mock-extended deep mocks - the referenced "method" is a jest.fn(), not a
+      // real unbound class method, but this rule can't tell the difference statically.
+      '@typescript-eslint/unbound-method': 'off',
       "prettier/prettier": ["error", { endOfLine: "auto" }],
     },
   },

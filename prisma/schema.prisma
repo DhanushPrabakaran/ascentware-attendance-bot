@@ -19,6 +19,12 @@ enum LeaveStatus {
   CANCELLED
 }
 
+enum NotificationType {
+  LEAVE_APPLIED
+  LEAVE_APPROVED
+  LEAVE_REJECTED
+}
+
 model Employee {
   id            String   @id @default(uuid())
   name          String
@@ -36,8 +42,9 @@ model Employee {
   shiftId String?
   shift   Shift?  @relation(fields: [shiftId], references: [id])
 
-  attendances Attendance[]
-  leaves      Leave[]
+  attendances   Attendance[]
+  leaves        Leave[]
+  notifications Notification[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -132,4 +139,18 @@ model DailySummary {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model Notification {
+  id         String           @id @default(uuid())
+  employeeId String
+  employee   Employee         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  type       NotificationType
+  title      String
+  message    String
+  link       String?
+  readAt     DateTime?
+  createdAt  DateTime         @default(now())
+
+  @@index([employeeId, readAt])
 }

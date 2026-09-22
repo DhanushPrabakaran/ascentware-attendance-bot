@@ -4,13 +4,17 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { LeaveStatus, Role, Employee } from '@prisma/client';
+import { LeaveStatus, NotificationType, Role, Employee } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class AdminService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notifications: NotificationsService,
+  ) {}
 
   async getSettings() {
     let settings = await this.prisma.settings.findUnique({
@@ -256,6 +260,16 @@ export class AdminService {
     return this.prisma.shift.create({ data });
   }
 
+  /** Resolves an employee's hrEmail to their Employee id, as a 0-or-1-element array
+   *  ready to spread into a notification recipient list. */
+  private async resolveHrRecipientId(
+    hrEmail: string | null,
+  ): Promise<string[]> {
+    if (!hrEmail) return [];
+    const hr = await this.findEmployeeByEmail(hrEmail);
+    return hr ? [hr.id] : [];
+  }
+
   async getLeaves(visibleIds: string[] | 'ALL' = 'ALL') {
     return this.prisma.leave.findMany({
       where:
@@ -284,9 +298,28 @@ export class AdminService {
     if (params.endDate < params.startDate) {
       throw new BadRequestException('endDate must be on or after startDate');
     }
-    return this.prisma.leave.create({
+    const leave = await this.prisma.leave.create({
       data: { employeeId, ...params },
+      include: { employee: true },
     });
+
+    // Notify managers (visibility + who needs to act) and HR (visibility only) that a
+    // leave request came in. Fires from here so it fires exactly once regardless of
+    // whether the request originated from the bot or the web.
+    const managers = await this.getManagersForEmployee(employeeId);
+    const recipientIds = managers.map((m) => m.id);
+    recipientIds.push(
+      ...(await this.resolveHrRecipientId(leave.employee.hrEmail)),
+    );
+    await this.notifications.createMany(
+      recipientIds,
+      NotificationType.LEAVE_APPLIED,
+      'New leave request',
+      `${leave.employee.name} applied for ${leave.leaveType} leave (${leave.startDate.toDateString()} - ${leave.endDate.toDateString()})`,
+      `/leaves/${leave.id}`,
+    );
+
+    return leave;
   }
 
   async createLeaveForTeamsUser(
@@ -306,10 +339,39 @@ export class AdminService {
   }
 
   async updateLeaveStatus(id: string, status: LeaveStatus) {
-    return this.prisma.leave.update({
+    const leave = await this.prisma.leave.update({
       where: { id },
       data: { status },
+      include: { employee: true },
     });
+
+    // Notify the applying employee of the outcome (previously silent - a real gap even
+    // before HR existed) and HR for visibility, same as on apply.
+    if (status === LeaveStatus.APPROVED || status === LeaveStatus.REJECTED) {
+      const notificationType =
+        status === LeaveStatus.APPROVED
+          ? NotificationType.LEAVE_APPROVED
+          : NotificationType.LEAVE_REJECTED;
+      const title =
+        status === LeaveStatus.APPROVED
+          ? 'Leave request approved'
+          : 'Leave request rejected';
+      const message = `Your ${leave.leaveType} leave (${leave.startDate.toDateString()} - ${leave.endDate.toDateString()}) was ${status.toLowerCase()}.`;
+
+      const recipientIds = [leave.employeeId];
+      recipientIds.push(
+        ...(await this.resolveHrRecipientId(leave.employee.hrEmail)),
+      );
+      await this.notifications.createMany(
+        recipientIds,
+        notificationType,
+        title,
+        message,
+        `/leaves/${leave.id}`,
+      );
+    }
+
+    return leave;
   }
 
   async getAttendances(visibleIds: string[] | 'ALL' = 'ALL') {

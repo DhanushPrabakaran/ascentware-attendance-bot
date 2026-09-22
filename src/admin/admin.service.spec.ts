@@ -2,6 +2,7 @@ import { mockDeep, DeepMockProxy } from 'jest-mock-extended';
 import { PrismaClient, Role, Employee } from '@prisma/client';
 import { AdminService } from './admin.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 
 function emp(overrides: Partial<Employee>): Employee {
@@ -30,7 +31,11 @@ describe('AdminService', () => {
 
   beforeEach(() => {
     prisma = mockDeep<PrismaClient>();
-    service = new AdminService(prisma as unknown as PrismaService);
+    const notifications = mockDeep<NotificationsService>();
+    service = new AdminService(
+      prisma as unknown as PrismaService,
+      notifications,
+    );
   });
 
   describe('getAllReports', () => {
@@ -83,7 +88,6 @@ describe('AdminService', () => {
       const result = await service.getAllReports('a@x.com');
 
       expect(result.map((e) => e.id)).toEqual(['b']);
-      // eslint-disable-next-line @typescript-eslint/unbound-method -- jest mock fn reference, not a real unbound method
       expect(prisma.employee.findMany).toHaveBeenCalledTimes(2); // stopped, didn't keep looping
     });
 

@@ -21,16 +21,21 @@ export class ApproveLeaveHandler extends BaseActionHandler {
     replyToId?: string,
   ): Promise<HandlerResult> {
     const leaveId = value.leaveId;
-    await this.adminService.updateLeaveStatus(leaveId, LeaveStatus.APPROVED);
+    const leave = await this.adminService.updateLeaveStatus(
+      leaveId,
+      LeaveStatus.APPROVED,
+    );
 
     try {
-      const leave = await this.adminService.getLeaveById(leaveId);
-      if (leave && leave.employee) {
-        await this.botHelper.notifyGroupChat(
-          context,
-          `✅ Leave Request Approved for **${leave.employee.name}**\n*Reason: ${leave.reason}*`,
-        );
-      }
+      await this.botHelper.notifyGroupChat(
+        context,
+        `✅ Leave Request Approved for **${leave.employee.name}**\n*Reason: ${leave.reason}*`,
+      );
+      await this.botHelper.notifyLeaveDecision(
+        context,
+        leave,
+        LeaveStatus.APPROVED,
+      );
     } catch (e) {
       console.error(e);
     }

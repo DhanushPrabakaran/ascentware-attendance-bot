@@ -8,6 +8,7 @@ import { WorkPlanModule } from './work-plan/work-plan.module';
 import { BotModule } from './bot/bot.module';
 import { AdminModule } from './admin/admin.module';
 import { AuthModule } from './auth/auth.module';
+import { NotificationsModule } from './notifications/notifications.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { RolesGuard } from './auth/guards/roles.guard';
 
@@ -19,6 +20,7 @@ import { RolesGuard } from './auth/guards/roles.guard';
     BotModule,
     AdminModule,
     AuthModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [
