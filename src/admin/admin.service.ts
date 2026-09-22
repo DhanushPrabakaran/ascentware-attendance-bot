@@ -6,7 +6,6 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { LeaveStatus } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
-import * as crypto from 'crypto';
 
 @Injectable()
 export class AdminService {
@@ -17,29 +16,14 @@ export class AdminService {
       where: { id: 'default' },
     });
     if (!settings) {
-      // First boot against a fresh, unseeded database: bootstrap a random admin
-      // password rather than crashing (adminPasswordHash has no schema default).
-      const generatedPassword = crypto.randomBytes(12).toString('base64url');
-      const adminPasswordHash = await bcrypt.hash(generatedPassword, 10);
       settings = await this.prisma.settings.create({
-        data: { id: 'default', adminPasswordHash },
+        data: { id: 'default' },
       });
-      console.warn(
-        `[AdminService] No Settings row existed - generated an admin password: "${generatedPassword}". ` +
-          'Log in with it and change it immediately via POST /api/v1/admin/settings/password.',
-      );
     }
     return settings;
   }
 
-  async updateAdminPasswordHash(adminPasswordHash: string) {
-    return this.prisma.settings.update({
-      where: { id: 'default' },
-      data: { adminPasswordHash },
-    });
-  }
-
-  async updateSettings(data: { commonGroupId?: string; adminEmail?: string }) {
+  async updateSettings(data: { commonGroupId?: string }) {
     // Settings always exists by this point - getSettings() bootstraps it on first read.
     await this.getSettings();
     return this.prisma.settings.update({
@@ -91,6 +75,24 @@ export class AdminService {
     });
   }
 
+  async findEmployeeByEmail(email: string) {
+    return this.prisma.employee.findFirst({
+      where: { email: { equals: email, mode: 'insensitive' } },
+    });
+  }
+
+  async getEmployeeById(id: string) {
+    return this.prisma.employee.findUnique({ where: { id } });
+  }
+
+  async setEmployeePassword(id: string, plaintextPassword: string) {
+    const passwordHash = await bcrypt.hash(plaintextPassword, 10);
+    return this.prisma.employee.update({
+      where: { id },
+      data: { passwordHash },
+    });
+  }
+
   async getManagersForTeamsUser(teamsUserId: string) {
     const emp = await this.prisma.employee.findUnique({
       where: { teamsUserId },
@@ -114,9 +116,7 @@ export class AdminService {
     teamsUserId: string,
     name?: string,
   ) {
-    const existing = await this.prisma.employee.findFirst({
-      where: { email: { equals: email, mode: 'insensitive' } },
-    });
+    const existing = await this.findEmployeeByEmail(email);
 
     if (existing) {
       if (existing.teamsUserId === teamsUserId) return existing;

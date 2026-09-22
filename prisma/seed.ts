@@ -21,17 +21,7 @@ async function main() {
   await prisma.settings.deleteMany();
 
   console.log('Seeding settings...');
-  const defaultPassword = process.env.SEED_ADMIN_PASSWORD || 'password';
-  await prisma.settings.create({
-    data: {
-      id: 'default',
-      adminUsername: 'admin',
-      adminPasswordHash: await bcrypt.hash(defaultPassword, 10),
-    }
-  });
-  console.log(
-    `Seeded admin login: username "admin", password "${defaultPassword}" (change this - set SEED_ADMIN_PASSWORD to override, or update it via the dashboard).`,
-  );
+  await prisma.settings.create({ data: { id: 'default' } });
 
   console.log('Seeding shifts...');
   const indianShift = await prisma.shift.create({
@@ -39,7 +29,7 @@ async function main() {
       name: 'Indian Time (IST)',
       startTime: '09:00',
       endTime: '18:00',
-    }
+    },
   });
 
   const belgiumShift = await prisma.shift.create({
@@ -47,10 +37,13 @@ async function main() {
       name: 'Belgium Time (CET)',
       startTime: '08:00',
       endTime: '17:00',
-    }
+    },
   });
 
   console.log('Seeding employees...');
+  const defaultPassword = process.env.SEED_ADMIN_PASSWORD || 'password';
+  const passwordHash = await bcrypt.hash(defaultPassword, 10);
+
   const admin = await prisma.employee.create({
     data: {
       name: 'Dhanush Prabakaran',
@@ -58,7 +51,33 @@ async function main() {
       role: 'ADMIN',
       shiftId: indianShift.id,
       managerEmails: [], // Admin has no managers
-    }
+      passwordHash,
+    },
+  });
+
+  const hr = await prisma.employee.create({
+    data: {
+      name: 'HR Partner',
+      email: 'hr@ascentwarecorp.com',
+      role: 'HR',
+      shiftId: indianShift.id,
+      managerEmails: [admin.email],
+      passwordHash,
+    },
+  });
+
+  // Reports to admin directly, and is itself a (role: EMPLOYEE) manager for the
+  // next employee below - "manager" is emergent from managerEmails, not a role.
+  const managerIst = await prisma.employee.create({
+    data: {
+      name: 'Manager (IST)',
+      email: 'manager.ist@ascentwarecorp.com',
+      role: 'EMPLOYEE',
+      shiftId: indianShift.id,
+      managerEmails: [admin.email],
+      hrEmail: hr.email,
+      passwordHash,
+    },
   });
 
   await prisma.employee.create({
@@ -67,8 +86,10 @@ async function main() {
       email: 'sample.employee.ist@ascentwarecorp.com',
       role: 'EMPLOYEE',
       shiftId: indianShift.id,
-      managerEmails: [admin.email],
-    }
+      managerEmails: [managerIst.email], // two levels deep - exercises the recursive reports chain
+      hrEmail: hr.email,
+      passwordHash,
+    },
   });
 
   await prisma.employee.create({
@@ -78,7 +99,9 @@ async function main() {
       role: 'EMPLOYEE',
       shiftId: belgiumShift.id,
       managerEmails: [admin.email],
-    }
+      hrEmail: hr.email,
+      passwordHash,
+    },
   });
 
   await prisma.employee.create({
@@ -90,10 +113,12 @@ async function main() {
       managerEmails: [admin.email],
       isActive: false,
       deactivatedAt: new Date(),
-    }
+    },
   });
 
-  console.log('Database seeded successfully.');
+  console.log(
+    `Database seeded successfully. Every seeded account logs in with its email and password "${defaultPassword}" (override with SEED_ADMIN_PASSWORD).`,
+  );
 }
 
 main()

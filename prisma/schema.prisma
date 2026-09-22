@@ -9,6 +9,7 @@ datasource db {
 enum Role {
   ADMIN
   EMPLOYEE
+  HR
 }
 
 enum LeaveStatus {
@@ -25,6 +26,8 @@ model Employee {
   teamsUserId   String?  @unique
   role          Role     @default(EMPLOYEE)
   managerEmails String[] // Array of emails this person reports to
+  hrEmail       String? // Assigned HR business partner's email, set directly by Admin/HR
+  passwordHash  String? // Web dashboard login; null means the account can't log in yet
 
   isActive      Boolean   @default(true)
   deactivatedAt DateTime?
@@ -68,9 +71,6 @@ model Leave {
 model Settings {
   id            String  @id @default("default")
   commonGroupId String?
-  adminEmail    String?
-  adminUsername     String @default("admin")
-  adminPasswordHash String
 }
 
 model Attendance {

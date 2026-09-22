@@ -1,6 +1,9 @@
 import { Controller, Post, Body } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { Public } from './decorators/public.decorator';
+import { CurrentUser } from './decorators/current-user.decorator';
+import { LoginDto } from './dto/login.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 
 @Controller('api/v1/admin')
 export class AuthController {
@@ -8,15 +11,17 @@ export class AuthController {
 
   @Public()
   @Post('login')
-  login(@Body() data: { username: string; password: string }) {
-    return this.authService.login(data.username, data.password);
+  login(@Body() data: LoginDto) {
+    return this.authService.login(data.email, data.password);
   }
 
   @Post('settings/password')
   async changePassword(
-    @Body() data: { currentPassword: string; newPassword: string },
+    @CurrentUser() user: { sub: string },
+    @Body() data: ChangePasswordDto,
   ) {
-    await this.authService.changePassword(
+    await this.authService.changeOwnPassword(
+      user.sub,
       data.currentPassword,
       data.newPassword,
     );

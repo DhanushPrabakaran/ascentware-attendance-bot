@@ -10,34 +10,46 @@ export class AuthService {
     private readonly jwtService: JwtService,
   ) {}
 
-  async login(username: string, password: string): Promise<{ token: string }> {
-    const settings = await this.adminService.getSettings();
+  async login(email: string, password: string): Promise<{ token: string }> {
+    const employee = await this.adminService.findEmployeeByEmail(email || '');
+
+    // Collapse "no such account", "not active", and "no password set yet" into the
+    // same generic failure as a wrong password - don't leak account existence.
+    if (!employee || !employee.isActive || !employee.passwordHash) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
     const isValidPassword = await bcrypt.compare(
       password || '',
-      settings.adminPasswordHash,
+      employee.passwordHash,
     );
-
-    if (username !== settings.adminUsername || !isValidPassword) {
+    if (!isValidPassword) {
       throw new UnauthorizedException('Invalid credentials');
     }
 
     const token = this.jwtService.sign({
-      sub: 'admin',
-      username: settings.adminUsername,
-      role: 'ADMIN',
+      sub: employee.id,
+      email: employee.email,
+      name: employee.name,
+      role: employee.role,
     });
 
     return { token };
   }
 
-  async changePassword(
+  async changeOwnPassword(
+    employeeId: string,
     currentPassword: string,
     newPassword: string,
   ): Promise<void> {
-    const settings = await this.adminService.getSettings();
+    const employee = await this.adminService.getEmployeeById(employeeId);
+    if (!employee?.passwordHash) {
+      throw new UnauthorizedException('No password set for this account');
+    }
+
     const isValid = await bcrypt.compare(
       currentPassword || '',
-      settings.adminPasswordHash,
+      employee.passwordHash,
     );
     if (!isValid) {
       throw new UnauthorizedException('Current password is incorrect');
@@ -48,7 +60,6 @@ export class AuthService {
       );
     }
 
-    const newHash = await bcrypt.hash(newPassword, 10);
-    await this.adminService.updateAdminPasswordHash(newHash);
+    await this.adminService.setEmployeePassword(employeeId, newPassword);
   }
 }
