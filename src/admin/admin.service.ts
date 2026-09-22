@@ -5,6 +5,8 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { LeaveStatus } from '@prisma/client';
+import * as bcrypt from 'bcrypt';
+import * as crypto from 'crypto';
 
 @Injectable()
 export class AdminService {
@@ -15,18 +17,34 @@ export class AdminService {
       where: { id: 'default' },
     });
     if (!settings) {
+      // First boot against a fresh, unseeded database: bootstrap a random admin
+      // password rather than crashing (adminPasswordHash has no schema default).
+      const generatedPassword = crypto.randomBytes(12).toString('base64url');
+      const adminPasswordHash = await bcrypt.hash(generatedPassword, 10);
       settings = await this.prisma.settings.create({
-        data: { id: 'default' },
+        data: { id: 'default', adminPasswordHash },
       });
+      console.warn(
+        `[AdminService] No Settings row existed - generated an admin password: "${generatedPassword}". ` +
+          'Log in with it and change it immediately via POST /api/v1/admin/settings/password.',
+      );
     }
     return settings;
   }
 
-  async updateSettings(data: { commonGroupId?: string; adminEmail?: string }) {
-    return this.prisma.settings.upsert({
+  async updateAdminPasswordHash(adminPasswordHash: string) {
+    return this.prisma.settings.update({
       where: { id: 'default' },
-      update: data,
-      create: { id: 'default', ...data },
+      data: { adminPasswordHash },
+    });
+  }
+
+  async updateSettings(data: { commonGroupId?: string; adminEmail?: string }) {
+    // Settings always exists by this point - getSettings() bootstraps it on first read.
+    await this.getSettings();
+    return this.prisma.settings.update({
+      where: { id: 'default' },
+      data,
     });
   }
 

@@ -1,7 +1,12 @@
 import { Controller, Post, Req, Res, All } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { BotService } from './bot.service';
+import { Public } from '../auth/decorators/public.decorator';
 
+// Bot Framework authenticates these requests itself (a Microsoft-issued JWT
+// validated inside botService.handler), a completely separate trust boundary
+// from our own admin JWT - so this controller opts out of JwtAuthGuard.
+@Public()
 @Controller('api/messages')
 export class BotController {
   constructor(private readonly botService: BotService) {}

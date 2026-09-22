@@ -57,20 +57,6 @@ export class AdminController {
     return this.adminService.getManagersForTeamsUser(teamsUserId);
   }
 
-  @Post('login')
-  async login(@Body() data: any) {
-    const settings = await this.adminService.getSettings();
-
-    if (
-      data.username === settings.adminUsername &&
-      data.password === settings.adminPassword
-    ) {
-      return { success: true, token: 'fake-jwt-token-for-local' };
-    }
-
-    throw new NotFoundException('Invalid credentials');
-  }
-
   @Post('employees/link')
   linkEmployee(
     @Body() data: { email: string; teamsUserId: string; name?: string },

@@ -69,8 +69,8 @@ model Settings {
   id            String  @id @default("default")
   commonGroupId String?
   adminEmail    String?
-  adminUsername String  @default("admin")
-  adminPassword String  @default("admin")
+  adminUsername     String @default("admin")
+  adminPasswordHash String
 }
 
 model Attendance {

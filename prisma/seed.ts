@@ -2,6 +2,7 @@ import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
 import { Pool } from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
+import * as bcrypt from 'bcrypt';
 
 const connectionString = process.env.DATABASE_URL;
 const pool = new Pool({ connectionString });
@@ -20,13 +21,17 @@ async function main() {
   await prisma.settings.deleteMany();
 
   console.log('Seeding settings...');
+  const defaultPassword = process.env.SEED_ADMIN_PASSWORD || 'password';
   await prisma.settings.create({
     data: {
       id: 'default',
       adminUsername: 'admin',
-      adminPassword: 'password', // Default password
+      adminPasswordHash: await bcrypt.hash(defaultPassword, 10),
     }
   });
+  console.log(
+    `Seeded admin login: username "admin", password "${defaultPassword}" (change this - set SEED_ADMIN_PASSWORD to override, or update it via the dashboard).`,
+  );
 
   console.log('Seeding shifts...');
   const indianShift = await prisma.shift.create({
