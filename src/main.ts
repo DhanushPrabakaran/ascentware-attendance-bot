@@ -12,7 +12,23 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     bufferLogs: true,
   });
-  app.useLogger(app.get(Logger));
+  const logger = app.get(Logger);
+  app.useLogger(logger);
+
+  // A single bad Teams SDK call (e.g. an orphaned promise from a connector-client
+  // mismatch) must never take the whole server down for every user. Log and keep
+  // running instead of letting Node's default behavior exit the process.
+  process.on('unhandledRejection', (reason: any) => {
+    logger.error(
+      `Unhandled promise rejection: ${reason?.message || reason}`,
+      reason?.stack,
+      'process',
+    );
+  });
+  process.on('uncaughtException', (err: Error) => {
+    logger.error(`Uncaught exception: ${err.message}`, err.stack, 'process');
+  });
+
   app.enableCors();
   app.useGlobalPipes(
     new ValidationPipe({

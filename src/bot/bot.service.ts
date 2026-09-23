@@ -13,6 +13,7 @@ import { WorkflowEngine } from './workflows/workflow.engine';
 import { ActivityTrackerService } from './services/activity-tracker.service';
 import { AttendanceService } from '../attendance/attendance.service';
 import { AdminService } from '../admin/admin.service';
+import { BotHelper } from './BotHelper';
 
 @Injectable()
 export class BotService {
@@ -26,6 +27,7 @@ export class BotService {
     private attendanceService: AttendanceService,
     private adminService: AdminService,
     private logger: Logger,
+    private botHelper: BotHelper,
   ) {
     const storage = new MemoryStorage();
 
@@ -58,6 +60,7 @@ export class BotService {
       this.attendanceService,
       this.adminService,
       this.logger,
+      this.botHelper,
     );
     this.myBot.registerHandlers(this.app);
 

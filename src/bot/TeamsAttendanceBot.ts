@@ -1,4 +1,4 @@
-import { TurnContext, MessageFactory, TeamsInfo } from 'botbuilder';
+import { TurnContext, MessageFactory } from 'botbuilder';
 import { AgentApplication, TurnState } from '@microsoft/agents-hosting';
 import { Logger } from 'nestjs-pino';
 import { CardBuilder } from './cards/CardBuilder';
@@ -15,6 +15,7 @@ export class TeamsAttendanceBot {
     private readonly attendanceService: AttendanceService,
     private readonly adminService: AdminService,
     private readonly logger: Logger,
+    private readonly botHelper: BotHelper,
   ) {}
 
   /**
@@ -33,17 +34,10 @@ export class TeamsAttendanceBot {
     if (employee) return true;
 
     const name = context.activity.from?.name || 'Unknown User';
-    let resolvedEmail: string | undefined;
-
-    try {
-      const member = await TeamsInfo.getMember(context, teamsUserId);
-      resolvedEmail = member?.email || member?.userPrincipalName || undefined;
-    } catch (err: any) {
-      this.logger.warn(
-        `Failed to get member email from TeamsInfo: ${err.message}`,
-        TeamsAttendanceBot.name,
-      );
-    }
+    const resolvedEmail = await this.botHelper.getVerifiedMemberEmail(
+      context,
+      teamsUserId,
+    );
 
     if (!resolvedEmail) {
       this.logger.error(

@@ -29,6 +29,53 @@ export class BotHelper {
   }
 
   /**
+   * The already-authenticated connector client @microsoft/agents-hosting's CloudAdapter
+   * stashes in turn state for this request. Classic botbuilder's TeamsInfo helper tries to
+   * build its own via context.adapter.createConnectorClient(serviceUrl) with no identity,
+   * which this CloudAdapter rejects asynchronously with an unhandled "-120390 Identity is
+   * required" rejection - the two SDKs aren't wire-compatible here, and an unhandled
+   * rejection from that dead-end crashes the whole process. Reusing the pre-built client
+   * from turn state (found by its createConversation method, since the new SDK doesn't
+   * expose a stable state key for it) sidesteps that entirely.
+   */
+  private findConnectorClient(context: TurnContext): any {
+    for (const val of Array.from((context.turnState as any).values())) {
+      if (val && typeof (val as any).createConversation === 'function') {
+        return val;
+      }
+    }
+    return undefined;
+  }
+
+  /**
+   * Resolves a Teams user's verified email/UPN for the account-linking flow in
+   * TeamsAttendanceBot.ensureAuthenticated. Never throws - a failure here just means we
+   * can't auto-link, not that the bot should stop responding.
+   */
+  async getVerifiedMemberEmail(
+    context: TurnContext,
+    teamsUserId: string,
+  ): Promise<string | undefined> {
+    try {
+      const connectorClient = this.findConnectorClient(context);
+      const conversationId = context.activity.conversation?.id;
+      if (!connectorClient || !conversationId || !teamsUserId) return undefined;
+
+      const member = await connectorClient.getConversationMember(
+        teamsUserId,
+        conversationId,
+      );
+      return member?.email || member?.userPrincipalName || undefined;
+    } catch (err: any) {
+      this.logger.warn(
+        `Failed to resolve Teams member email: ${err.message}`,
+        BotHelper.name,
+      );
+      return undefined;
+    }
+  }
+
+  /**
    * DMs a single Teams user directly (a 1:1 conversation, not the group chat).
    * Extracted from submit-leave.handler.ts, which was the only caller until leave
    * outcome notifications needed the same connectorClient dance.
@@ -48,14 +95,7 @@ export class BotHelper {
     }
     const botRecipient = context.activity.recipient || { id: `28:${appId}` };
 
-    // Find the connector client in the turn state to bypass CloudAdapter scope bugs
-    let connectorClient: any;
-    for (const val of Array.from((context.turnState as any).values())) {
-      if (val && typeof (val as any).createConversation === 'function') {
-        connectorClient = val;
-        break;
-      }
-    }
+    const connectorClient = this.findConnectorClient(context);
 
     if (!connectorClient) {
       throw new Error('Could not find ConnectorClient in TurnContext state');
