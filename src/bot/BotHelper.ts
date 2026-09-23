@@ -144,58 +144,72 @@ export class BotHelper {
     }
   }
 
+  /**
+   * Settings.commonGroupId holds a comma-separated list of conversation IDs (not a
+   * schema array - avoids a migration, and a single ID still works unchanged). Every
+   * ID in the list gets the announcement; one bad ID doesn't block the rest.
+   */
   async notifyGroupChat(context: TurnContext, message: string) {
-    try {
-      const settings = await this.adminService.getSettings();
-      const groupChatId =
-        settings.commonGroupId ||
-        '19:adc81e9132dd45e6b3dfc769a8b4e2ad@thread.v2';
+    const settings = await this.adminService.getSettings();
+    const groupChatIds = (
+      settings.commonGroupId || '19:adc81e9132dd45e6b3dfc769a8b4e2ad@thread.v2'
+    )
+      .split(',')
+      .map((id) => id.trim())
+      .filter(Boolean);
 
-      const appId =
-        process.env.CLIENT_ID ||
-        process.env.CLIENTID ||
-        process.env.MicrosoftAppId ||
-        '';
-      const adapter = context.adapter as CloudAdapter;
+    const appId =
+      process.env.CLIENT_ID ||
+      process.env.CLIENTID ||
+      process.env.MicrosoftAppId ||
+      '';
+    const adapter = context.adapter as CloudAdapter;
+    const baseReference: any = TurnContext.getConversationReference(
+      context.activity,
+    );
+    // @microsoft/agents-activity reads 'agent' instead of 'bot' for continuation activities
+    if (baseReference.bot) {
+      baseReference.agent = baseReference.bot;
+    }
+    // Delete user so we aren't targeting the individual user's thread
+    delete baseReference.user;
 
-      const reference: any = TurnContext.getConversationReference(
-        context.activity,
-      );
+    const failures: string[] = [];
+    for (const groupChatId of groupChatIds) {
+      try {
+        const reference = {
+          ...baseReference,
+          conversation: {
+            id: groupChatId,
+            isGroup: true,
+            conversationType: 'groupChat',
+            tenantId: context.activity.conversation?.tenantId,
+          },
+        };
 
-      // Override the conversation ID to point to the group chat
-      reference.conversation = {
-        id: groupChatId,
-        isGroup: true,
-        conversationType: 'groupChat',
-        tenantId: context.activity.conversation?.tenantId,
-      };
-
-      // @microsoft/agents-activity reads 'agent' instead of 'bot' for continuation activities
-      if (reference.bot) {
-        reference.agent = reference.bot;
+        // Bypass TypeScript definitions because @microsoft/agents-hosting's CloudAdapter
+        // expects 3 arguments at runtime, but inherits 2-argument typings from botbuilder.
+        await (adapter as any).continueConversation(
+          appId,
+          reference,
+          async (tContext: TurnContext) => {
+            await tContext.sendActivity(message);
+          },
+        );
+      } catch (err: any) {
+        this.logger.error(
+          `Failed to notify group chat ${groupChatId}: ${err.message}`,
+          err.stack,
+          BotHelper.name,
+        );
+        failures.push(groupChatId);
       }
+    }
 
-      // Delete user so we aren't targeting the individual user's thread
-      delete reference.user;
-
-      // Bypass TypeScript definitions because @microsoft/agents-hosting's CloudAdapter
-      // expects 3 arguments at runtime, but inherits 2-argument typings from botbuilder.
-      await (adapter as any).continueConversation(
-        appId,
-        reference,
-        async (tContext: TurnContext) => {
-          await tContext.sendActivity(message);
-        },
-      );
-    } catch (err: any) {
-      this.logger.error(
-        `Failed to notify group chat: ${err.message}`,
-        err.stack,
-        BotHelper.name,
-      );
+    if (failures.length > 0) {
       try {
         await context.sendActivity(
-          `Failed to notify group chat: ${err.message || err.toString()}`,
+          `Failed to notify ${failures.length} group chat(s): ${failures.join(', ')}`,
         );
       } catch (e) {
         // Best-effort: if we can't even tell the user the notification failed, there's nothing more to do.

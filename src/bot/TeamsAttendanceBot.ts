@@ -171,7 +171,7 @@ export class TeamsAttendanceBot {
         const conversation = context.activity.conversation;
         await (context as any).sendActivity(
           MessageFactory.text(
-            `Conversation ID: \`${conversation?.id}\`\nType: ${conversation?.conversationType || 'unknown'}\n\nPaste the ID above into Settings → Common Group ID to send attendance notifications here.`,
+            `Conversation ID: \`${conversation?.id}\`\nType: ${conversation?.conversationType || 'unknown'}\n\nAdd this ID to Settings → Common Group ID to send attendance notifications here too. To notify multiple groups, separate their IDs with commas.`,
           ),
         );
         return;

@@ -29,17 +29,17 @@ export default function Settings() {
       <div className="bg-surface shadow-2xl shadow-background/50 rounded-xl border border-borderBase p-6">
         <div className="space-y-6">
           <div>
-            <label className="block text-sm font-semibold text-secondary/80 mb-1">Common Group ID (Teams Chat ID)</label>
+            <label className="block text-sm font-semibold text-secondary/80 mb-1">Common Group ID(s) (Teams Chat ID)</label>
             <p className="text-sm text-secondary/60 mb-3">
-              The Conversation ID where the bot should send generic Leave announcements. <br/>
-              <strong className="text-secondary">How to find it:</strong> Open Microsoft Teams in your web browser, navigate to the group chat, and look at the URL. Copy the value of the <code className="bg-white/10 px-1 py-0.5 rounded border border-white/20 text-primary mx-1 font-mono text-xs">chatId</code> parameter (it usually starts with <code className="bg-white/10 px-1 py-0.5 rounded border border-white/20 text-primary mx-1 font-mono text-xs">19:</code> and ends with <code className="bg-white/10 px-1 py-0.5 rounded border border-white/20 text-primary mx-1 font-mono text-xs">@thread.v2</code>).
+              The Conversation ID(s) where the bot should send generic Leave and attendance announcements. Separate multiple IDs with commas to notify several groups at once. <br/>
+              <strong className="text-secondary">How to find it:</strong> Message <code className="bg-white/10 px-1 py-0.5 rounded border border-white/20 text-primary mx-1 font-mono text-xs">/groupid</code> to the bot inside the group chat and it will reply with that conversation's ID.
             </p>
-            <input 
-              type="text" 
-              value={settings.commonGroupId || ''} 
+            <input
+              type="text"
+              value={settings.commonGroupId || ''}
               onChange={e => setSettings({...settings, commonGroupId: e.target.value})}
-              className="block w-full px-3 py-2 bg-background border border-borderBase rounded-lg text-secondary focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary sm:text-sm font-mono transition-colors" 
-              placeholder="19:xxxxxxxxx@thread.v2"
+              className="block w-full px-3 py-2 bg-background border border-borderBase rounded-lg text-secondary focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary sm:text-sm font-mono transition-colors"
+              placeholder="19:xxxxxxxxx@thread.v2, 19:yyyyyyyyy@thread.v2"
             />
           </div>
 
