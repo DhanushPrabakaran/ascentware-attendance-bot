@@ -1,11 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import { TurnContext, CloudAdapter, Activity } from 'botbuilder';
 import { Employee, Leave, LeaveStatus } from '@prisma/client';
+import { Logger } from 'nestjs-pino';
 import { AdminService } from '../admin/admin.service';
 
 @Injectable()
 export class BotHelper {
-  constructor(private readonly adminService: AdminService) {}
+  constructor(
+    private readonly adminService: AdminService,
+    private readonly logger: Logger,
+  ) {}
 
   static getRandomQuote(): string {
     const quotes = [
@@ -144,7 +148,11 @@ export class BotHelper {
         },
       );
     } catch (err: any) {
-      console.error('Failed to notify group chat:', err);
+      this.logger.error(
+        `Failed to notify group chat: ${err.message}`,
+        err.stack,
+        BotHelper.name,
+      );
       try {
         await context.sendActivity(
           `Failed to notify group chat: ${err.message || err.toString()}`,

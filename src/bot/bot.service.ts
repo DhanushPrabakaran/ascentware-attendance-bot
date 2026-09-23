@@ -7,6 +7,7 @@ import {
   CloudAdapter,
 } from '@microsoft/agents-hosting';
 import { createAgentRequestHandler } from '@microsoft/agents-hosting-express';
+import { Logger } from 'nestjs-pino';
 import { TeamsAttendanceBot } from './TeamsAttendanceBot';
 import { WorkflowEngine } from './workflows/workflow.engine';
 import { ActivityTrackerService } from './services/activity-tracker.service';
@@ -24,6 +25,7 @@ export class BotService {
     private activityTracker: ActivityTrackerService,
     private attendanceService: AttendanceService,
     private adminService: AdminService,
+    private logger: Logger,
   ) {
     const storage = new MemoryStorage();
 
@@ -55,6 +57,7 @@ export class BotService {
       this.activityTracker,
       this.attendanceService,
       this.adminService,
+      this.logger,
     );
     this.myBot.registerHandlers(this.app);
 

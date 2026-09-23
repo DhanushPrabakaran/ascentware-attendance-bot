@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { TurnContext } from 'botbuilder';
 import { LeaveStatus } from '@prisma/client';
+import { Logger } from 'nestjs-pino';
 import { HandlerResult } from '../interfaces/action-handler.interface';
 import { BaseActionHandler } from './base-action.handler';
 import { AdminService } from '../../../admin/admin.service';
@@ -11,6 +12,7 @@ export class RejectLeaveHandler extends BaseActionHandler {
   constructor(
     private readonly adminService: AdminService,
     private readonly botHelper: BotHelper,
+    private readonly logger: Logger,
   ) {
     super();
   }
@@ -32,8 +34,12 @@ export class RejectLeaveHandler extends BaseActionHandler {
         leave,
         LeaveStatus.REJECTED,
       );
-    } catch (e) {
-      console.error(e);
+    } catch (e: any) {
+      this.logger.error(
+        `Failed to notify leave rejection: ${e.message}`,
+        e.stack,
+        RejectLeaveHandler.name,
+      );
     }
 
     return this.respond([this.textActivity('Leave request rejected.')]);

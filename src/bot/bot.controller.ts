@@ -1,5 +1,6 @@
-import { Controller, Post, Req, Res, All } from '@nestjs/common';
+import { Controller, Post, Req, Res } from '@nestjs/common';
 import type { Request, Response } from 'express';
+import { Logger } from 'nestjs-pino';
 import { BotService } from './bot.service';
 import { Public } from '../auth/decorators/public.decorator';
 
@@ -9,22 +10,34 @@ import { Public } from '../auth/decorators/public.decorator';
 @Public()
 @Controller('api/messages')
 export class BotController {
-  constructor(private readonly botService: BotService) {}
+  constructor(
+    private readonly botService: BotService,
+    private readonly logger: Logger,
+  ) {}
 
   @Post()
   async processMessage(@Req() req: Request, @Res() res: Response) {
-    console.log(
-      `[BotController] Received message from Bot Framework! Method: ${req.method}, Auth: ${req.headers.authorization ? 'Present' : 'Missing'}`,
+    this.logger.log(
+      `Received message from Bot Framework. Method: ${req.method}, Auth: ${req.headers.authorization ? 'Present' : 'Missing'}`,
+      BotController.name,
     );
     try {
       await this.botService.handler(req, res, () => {
-        console.log('[BotController] Next was called by JWT middleware!');
+        this.logger.log(
+          'Next was called by JWT middleware',
+          BotController.name,
+        );
       });
-      console.log(
-        `[BotController] Request processed. Headers sent: ${res.headersSent}`,
+      this.logger.log(
+        `Request processed. Headers sent: ${res.headersSent}`,
+        BotController.name,
       );
     } catch (e: any) {
-      console.error('[BotController] Error processing message:', e);
+      this.logger.error(
+        `Error processing message: ${e.message}`,
+        e.stack,
+        BotController.name,
+      );
       if (!res.headersSent) {
         res.status(500).send(e.message);
       }

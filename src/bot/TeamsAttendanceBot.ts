@@ -1,5 +1,6 @@
 import { TurnContext, MessageFactory, TeamsInfo } from 'botbuilder';
 import { AgentApplication, TurnState } from '@microsoft/agents-hosting';
+import { Logger } from 'nestjs-pino';
 import { CardBuilder } from './cards/CardBuilder';
 import { WorkflowEngine } from './workflows/workflow.engine';
 import { ActivityTrackerService } from './services/activity-tracker.service';
@@ -13,6 +14,7 @@ export class TeamsAttendanceBot {
     private readonly activityTracker: ActivityTrackerService,
     private readonly attendanceService: AttendanceService,
     private readonly adminService: AdminService,
+    private readonly logger: Logger,
   ) {}
 
   /**
@@ -37,15 +39,17 @@ export class TeamsAttendanceBot {
       const member = await TeamsInfo.getMember(context, teamsUserId);
       resolvedEmail = member?.email || member?.userPrincipalName || undefined;
     } catch (err: any) {
-      console.log(
-        '[TeamsBot] Failed to get member email from TeamsInfo',
-        err.message,
+      this.logger.warn(
+        `Failed to get member email from TeamsInfo: ${err.message}`,
+        TeamsAttendanceBot.name,
       );
     }
 
     if (!resolvedEmail) {
-      console.error(
-        `[TeamsBot] Could not resolve a verified email for Teams user ${teamsUserId}; refusing to auto-create an employee record.`,
+      this.logger.error(
+        `Could not resolve a verified email for Teams user ${teamsUserId}; refusing to auto-create an employee record.`,
+        undefined,
+        TeamsAttendanceBot.name,
       );
       await context.sendActivity(
         MessageFactory.text(
@@ -62,8 +66,12 @@ export class TeamsAttendanceBot {
         name,
       );
       return true;
-    } catch (e) {
-      console.error('[TeamsBot] Failed to link employee by verified email', e);
+    } catch (e: any) {
+      this.logger.error(
+        `Failed to link employee by verified email: ${e.message}`,
+        e.stack,
+        TeamsAttendanceBot.name,
+      );
       await context.sendActivity(
         MessageFactory.text(
           'Error linking your account. Please contact your administrator.',
@@ -119,8 +127,12 @@ export class TeamsAttendanceBot {
         if (result.deleteReplyToId && replyToId) {
           try {
             await context.deleteActivity(replyToId);
-          } catch (e) {
-            console.error(e);
+          } catch (e: any) {
+            this.logger.error(
+              `Failed to delete reply activity: ${e.message}`,
+              e.stack,
+              TeamsAttendanceBot.name,
+            );
           }
         }
 
@@ -129,7 +141,11 @@ export class TeamsAttendanceBot {
         }
         return result;
       } catch (error: any) {
-        console.error(error);
+        this.logger.error(
+          `Error handling action: ${error.message}`,
+          error.stack,
+          TeamsAttendanceBot.name,
+        );
         let msg = error.message;
         if (
           error.response &&

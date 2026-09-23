@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { TurnContext } from 'botbuilder';
+import { Logger } from 'nestjs-pino';
 import { HandlerResult } from '../interfaces/action-handler.interface';
 import { BaseActionHandler } from './base-action.handler';
 import { AdminService } from '../../../admin/admin.service';
@@ -11,6 +12,7 @@ export class SubmitLeaveHandler extends BaseActionHandler {
   constructor(
     private readonly adminService: AdminService,
     private readonly botHelper: BotHelper,
+    private readonly logger: Logger,
   ) {
     super();
   }
@@ -75,7 +77,11 @@ export class SubmitLeaveHandler extends BaseActionHandler {
           }
         }
       } catch (err: any) {
-        console.error('Failed to notify managers:', err);
+        this.logger.error(
+          `Failed to notify managers: ${err.message}`,
+          err.stack,
+          SubmitLeaveHandler.name,
+        );
         await context.sendActivity(
           `Failed to notify managers: ${err.message || err.toString()}`,
         );

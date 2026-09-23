@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { TurnContext } from 'botbuilder';
 import { LeaveStatus } from '@prisma/client';
+import { Logger } from 'nestjs-pino';
 import { HandlerResult } from '../interfaces/action-handler.interface';
 import { BaseActionHandler } from './base-action.handler';
 import { AdminService } from '../../../admin/admin.service';
@@ -11,6 +12,7 @@ export class ApproveLeaveHandler extends BaseActionHandler {
   constructor(
     private readonly adminService: AdminService,
     private readonly botHelper: BotHelper,
+    private readonly logger: Logger,
   ) {
     super();
   }
@@ -36,8 +38,12 @@ export class ApproveLeaveHandler extends BaseActionHandler {
         leave,
         LeaveStatus.APPROVED,
       );
-    } catch (e) {
-      console.error(e);
+    } catch (e: any) {
+      this.logger.error(
+        `Failed to notify leave approval: ${e.message}`,
+        e.stack,
+        ApproveLeaveHandler.name,
+      );
     }
 
     return this.respond([
