@@ -95,9 +95,7 @@ export default function Layout() {
       {/* Sidebar: desktop */}
       <div className="hidden md:flex w-64 bg-surface flex-col border-r border-borderBase shadow-sm">
         <div className="p-6 text-xl font-bold border-b border-borderBase flex items-center space-x-3">
-          <div className="w-8 h-8 bg-primary rounded flex items-center justify-center">
-            <LayoutDashboard size={18} className="text-white" />
-          </div>
+          <img src="/ascentware-icon.png" alt="" className="w-8 h-8 object-contain shrink-0" />
           <span className="tracking-tight text-secondary">Ascentware</span>
         </div>
         <nav className="flex-1 p-4 space-y-1">
@@ -123,7 +121,10 @@ export default function Layout() {
           />
           <div className="relative w-64 bg-surface flex flex-col border-r border-borderBase shadow-2xl">
             <div className="p-6 border-b border-borderBase flex items-center justify-between">
-              <span className="tracking-tight text-secondary font-bold text-xl">Ascentware</span>
+              <div className="flex items-center space-x-3">
+                <img src="/ascentware-icon.png" alt="" className="w-8 h-8 object-contain shrink-0" />
+                <span className="tracking-tight text-secondary font-bold text-xl">Ascentware</span>
+              </div>
               <button onClick={() => setMobileNavOpen(false)} aria-label="Close menu">
                 <X size={20} className="text-secondary/60" />
               </button>

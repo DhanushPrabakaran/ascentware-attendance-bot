@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LayoutDashboard } from 'lucide-react';
 import { api, setToken, ApiError } from '../lib/api';
 import { useAuth } from '../lib/auth';
 
@@ -37,9 +36,7 @@ export default function Login() {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md flex flex-col items-center">
-        <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center mb-4 shadow-sm">
-          <LayoutDashboard size={24} className="text-secondary" />
-        </div>
+        <img src="/ascentware-icon.png" alt="Ascentware" className="w-14 h-14 object-contain mb-4" />
         <h2 className="text-center text-3xl font-bold tracking-tight text-gray-900">
           Ascentware
         </h2>

@@ -79,7 +79,7 @@ export default function EmployeeDetail() {
     } else {
       currentStatus = "Active Now";
       statusColor = "text-primary";
-      statusBg = "bg-primary/10 border-primary/20 shadow-[0_0_15px_rgba(43,179,228,0.15)]";
+      statusBg = "bg-primary/10 border-primary/20 shadow-[0_0_15px_rgba(0,166,239,0.15)]";
     }
   }
 

@@ -80,7 +80,7 @@ export default function Dashboard() {
                   badgeStyle = "bg-yellow-400/10 text-yellow-400 border border-yellow-400/20";
                 } else {
                   statusText = "Active";
-                  badgeStyle = "bg-primary/10 text-primary border border-primary/20 shadow-[0_0_10px_rgba(43,179,228,0.2)]";
+                  badgeStyle = "bg-primary/10 text-primary border border-primary/20 shadow-[0_0_10px_rgba(0,166,239,0.2)]";
                 }
               }
 

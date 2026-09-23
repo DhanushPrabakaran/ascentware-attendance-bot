@@ -7,8 +7,8 @@ export default {
   theme: {
     extend: {
       colors: {
-        primary: '#0070F3', // Vercel blue
-        primaryHover: '#0051B3',
+        primary: '#00A6EF', // Ascentware brand blue (from logo)
+        primaryHover: '#0085BF',
         secondary: '#111827', // Deep text
         tertiary: '#6B7280', // Subdued text
         neutral: '#F9FAFB', // Background
