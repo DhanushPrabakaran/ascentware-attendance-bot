@@ -16,6 +16,7 @@ async function main() {
   await prisma.attendanceBreak.deleteMany();
   await prisma.attendance.deleteMany();
   await prisma.leave.deleteMany();
+  await prisma.notification.deleteMany();
   await prisma.employee.deleteMany();
   await prisma.shift.deleteMany();
   await prisma.settings.deleteMany();
@@ -23,101 +24,22 @@ async function main() {
   console.log('Seeding settings...');
   await prisma.settings.create({ data: { id: 'default' } });
 
-  console.log('Seeding shifts...');
-  const indianShift = await prisma.shift.create({
-    data: {
-      name: 'Indian Time (IST)',
-      startTime: '09:00',
-      endTime: '18:00',
-    },
-  });
-
-  const belgiumShift = await prisma.shift.create({
-    data: {
-      name: 'Belgium Time (CET)',
-      startTime: '08:00',
-      endTime: '17:00',
-    },
-  });
-
-  console.log('Seeding employees...');
+  console.log('Seeding admin account...');
   const defaultPassword = process.env.SEED_ADMIN_PASSWORD || 'password';
   const passwordHash = await bcrypt.hash(defaultPassword, 10);
 
-  const admin = await prisma.employee.create({
+  await prisma.employee.create({
     data: {
-      name: 'Dhanush Prabakaran',
-      email: 'dhanushprabakaran@ascentwarecorp.com',
+      name: 'Admin',
+      email: 'admin@ascentwarecorp.com',
       role: 'ADMIN',
-      shiftId: indianShift.id,
-      managerEmails: [], // Admin has no managers
+      managerEmails: [],
       passwordHash,
-    },
-  });
-
-  const hr = await prisma.employee.create({
-    data: {
-      name: 'HR Partner',
-      email: 'hr@ascentwarecorp.com',
-      role: 'HR',
-      shiftId: indianShift.id,
-      managerEmails: [admin.email],
-      passwordHash,
-    },
-  });
-
-  // Reports to admin directly, and is itself a (role: EMPLOYEE) manager for the
-  // next employee below - "manager" is emergent from managerEmails, not a role.
-  const managerIst = await prisma.employee.create({
-    data: {
-      name: 'Manager (IST)',
-      email: 'manager.ist@ascentwarecorp.com',
-      role: 'EMPLOYEE',
-      shiftId: indianShift.id,
-      managerEmails: [admin.email],
-      hrEmail: hr.email,
-      passwordHash,
-    },
-  });
-
-  await prisma.employee.create({
-    data: {
-      name: 'Sample Employee (IST)',
-      email: 'sample.employee.ist@ascentwarecorp.com',
-      role: 'EMPLOYEE',
-      shiftId: indianShift.id,
-      managerEmails: [managerIst.email], // two levels deep - exercises the recursive reports chain
-      hrEmail: hr.email,
-      passwordHash,
-    },
-  });
-
-  await prisma.employee.create({
-    data: {
-      name: 'Sample Employee (CET)',
-      email: 'sample.employee.cet@ascentwarecorp.com',
-      role: 'EMPLOYEE',
-      shiftId: belgiumShift.id,
-      managerEmails: [admin.email],
-      hrEmail: hr.email,
-      passwordHash,
-    },
-  });
-
-  await prisma.employee.create({
-    data: {
-      name: 'Offboarded Employee',
-      email: 'offboarded.employee@ascentwarecorp.com',
-      role: 'EMPLOYEE',
-      shiftId: indianShift.id,
-      managerEmails: [admin.email],
-      isActive: false,
-      deactivatedAt: new Date(),
     },
   });
 
   console.log(
-    `Database seeded successfully. Every seeded account logs in with its email and password "${defaultPassword}" (override with SEED_ADMIN_PASSWORD).`,
+    `Database seeded. Log in as admin@ascentwarecorp.com with password "${defaultPassword}" (override with SEED_ADMIN_PASSWORD) and change it after first login. No shifts or other employees were seeded - add real ones from the admin dashboard.`,
   );
 }
 
