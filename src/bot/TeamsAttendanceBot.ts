@@ -163,6 +163,20 @@ export class TeamsAttendanceBot {
     };
 
     app.onMessage(/.*/, async (context, state) => {
+      // Diagnostic command, intentionally checked before ensureAuthenticated - an admin
+      // wiring up a new group/channel for notifyGroupChat's commonGroupId setting needs
+      // this ID before anyone in that conversation is necessarily linked yet.
+      const text = (context.activity.text || '').trim().toLowerCase();
+      if (text === '/groupid' || text === 'group id') {
+        const conversation = context.activity.conversation;
+        await (context as any).sendActivity(
+          MessageFactory.text(
+            `Conversation ID: \`${conversation?.id}\`\nType: ${conversation?.conversationType || 'unknown'}\n\nPaste the ID above into Settings → Common Group ID to send attendance notifications here.`,
+          ),
+        );
+        return;
+      }
+
       if (!(await this.ensureAuthenticated(context as any))) return;
 
       const userState = await this.attendanceService.getStatus(
