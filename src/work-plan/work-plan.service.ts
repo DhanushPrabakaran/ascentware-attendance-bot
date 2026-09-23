@@ -1,5 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { TaskInputDto } from './dto/save-daily-plan.dto';
+import { BulkTaskUpdateItemDto } from './dto/bulk-update-task.dto';
 
 @Injectable()
 export class WorkPlanService {
@@ -7,13 +9,13 @@ export class WorkPlanService {
 
   async saveDailyPlan(
     attendanceId: string,
-    tasks: any[],
-    permissionMinutes: any,
+    tasks: TaskInputDto[],
+    permissionMinutes?: number,
   ) {
     if (permissionMinutes !== undefined) {
       await this.prisma.attendance.update({
         where: { id: attendanceId },
-        data: { permissionMinutes: parseInt(permissionMinutes, 10) || 0 },
+        data: { permissionMinutes },
       });
     }
 
@@ -28,7 +30,7 @@ export class WorkPlanService {
           data: {
             attendanceId,
             taskName: task.taskName,
-            estimatedMinutes: parseInt(task.estimatedMinutes, 10) || 0,
+            estimatedMinutes: task.estimatedMinutes ?? 0,
             priority: task.priority || 'normal',
             status: 'not_started',
           },
@@ -38,18 +40,24 @@ export class WorkPlanService {
     return createdTasks;
   }
 
-  async updateTaskProgress(taskId: string, data: any) {
+  async updateTaskProgress(
+    taskId: string,
+    data: { status: string; timeTakenMinutes?: number; remarks?: string },
+  ) {
     return this.prisma.dailyTask.update({
       where: { id: taskId },
       data: {
         status: data.status,
-        timeTakenMinutes: parseInt(data.timeTakenMinutes, 10) || 0,
+        timeTakenMinutes: data.timeTakenMinutes ?? 0,
         remarks: data.remarks,
       },
     });
   }
 
-  async saveSummary(attendanceId: string, data: any) {
+  async saveSummary(
+    attendanceId: string,
+    data: { overallStatus: string; blockerType?: string; remarks?: string },
+  ) {
     return this.prisma.dailySummary.create({
       data: {
         attendanceId,
@@ -67,15 +75,14 @@ export class WorkPlanService {
     });
   }
 
-  async bulkUpdateTaskProgress(tasks: any[]) {
+  async bulkUpdateTaskProgress(tasks: BulkTaskUpdateItemDto[]) {
     const results = [];
     for (const task of tasks) {
-      if (!task.id) continue;
       const updated = await this.prisma.dailyTask.update({
         where: { id: task.id },
         data: {
           status: task.status,
-          timeTakenMinutes: parseInt(task.timeTakenMinutes, 10) || 0,
+          timeTakenMinutes: task.timeTakenMinutes ?? 0,
           remarks: task.remarks,
         },
       });

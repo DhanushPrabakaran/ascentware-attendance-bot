@@ -13,7 +13,14 @@ import { AdminService } from './admin.service';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
-import { LeaveStatus, Role } from '@prisma/client';
+import { Role } from '@prisma/client';
+import { CreateEmployeeDto } from './dto/create-employee.dto';
+import { UpdateEmployeeDto } from './dto/update-employee.dto';
+import { SetPasswordDto } from './dto/set-password.dto';
+import { CreateShiftDto } from './dto/create-shift.dto';
+import { UpdateSettingsDto } from './dto/update-settings.dto';
+import { CreateLeaveDto } from './dto/create-leave.dto';
+import { UpdateLeaveStatusDto } from './dto/update-leave-status.dto';
 
 @Controller('api/v1/admin')
 export class AdminController {
@@ -27,8 +34,8 @@ export class AdminController {
 
   @Roles(Role.ADMIN)
   @Put('settings')
-  updateSettings(@Body() data: any) {
-    return this.adminService.updateSettings(data);
+  updateSettings(@Body() dto: UpdateSettingsDto) {
+    return this.adminService.updateSettings(dto);
   }
 
   @Get('employees')
@@ -39,14 +46,14 @@ export class AdminController {
 
   @Roles(Role.ADMIN)
   @Post('employees')
-  createEmployee(@Body() data: any) {
-    return this.adminService.createEmployee(data);
+  createEmployee(@Body() dto: CreateEmployeeDto) {
+    return this.adminService.createEmployee(dto);
   }
 
   @Roles(Role.ADMIN)
   @Put('employees/:id')
-  updateEmployee(@Param('id') id: string, @Body() data: any) {
-    return this.adminService.updateEmployee(id, data);
+  updateEmployee(@Param('id') id: string, @Body() dto: UpdateEmployeeDto) {
+    return this.adminService.updateEmployee(id, dto);
   }
 
   @Roles(Role.ADMIN)
@@ -59,9 +66,9 @@ export class AdminController {
   @Post('employees/:id/password')
   async setEmployeePassword(
     @Param('id') id: string,
-    @Body('password') password: string,
+    @Body() dto: SetPasswordDto,
   ) {
-    await this.adminService.setEmployeePassword(id, password);
+    await this.adminService.setEmployeePassword(id, dto.password);
     return { success: true };
   }
 
@@ -85,8 +92,8 @@ export class AdminController {
 
   @Roles(Role.ADMIN)
   @Post('shifts')
-  createShift(@Body() data: any) {
-    return this.adminService.createShift(data);
+  createShift(@Body() dto: CreateShiftDto) {
+    return this.adminService.createShift(dto);
   }
 
   @Get('leaves')
@@ -102,21 +109,12 @@ export class AdminController {
   }
 
   @Post('leaves/me')
-  applyOwnLeave(
-    @CurrentUser() user: JwtPayload,
-    @Body()
-    data: {
-      leaveType: string;
-      startDate: string;
-      endDate: string;
-      reason: string;
-    },
-  ) {
+  applyOwnLeave(@CurrentUser() user: JwtPayload, @Body() dto: CreateLeaveDto) {
     return this.adminService.createLeaveForEmployee(user.sub, {
-      leaveType: data.leaveType,
-      startDate: new Date(data.startDate),
-      endDate: new Date(data.endDate),
-      reason: data.reason,
+      leaveType: dto.leaveType,
+      startDate: new Date(dto.startDate),
+      endDate: new Date(dto.endDate),
+      reason: dto.reason,
     });
   }
 
@@ -136,7 +134,7 @@ export class AdminController {
   async updateLeaveStatus(
     @CurrentUser() user: JwtPayload,
     @Param('id') id: string,
-    @Body('status') status: LeaveStatus,
+    @Body() dto: UpdateLeaveStatusDto,
   ) {
     const leave = await this.adminService.getLeaveById(id);
     if (!leave) throw new NotFoundException('Leave not found');
@@ -145,6 +143,6 @@ export class AdminController {
         'You are not authorized to approve or reject this leave request',
       );
     }
-    return this.adminService.updateLeaveStatus(id, status);
+    return this.adminService.updateLeaveStatus(id, dto.status);
   }
 }
