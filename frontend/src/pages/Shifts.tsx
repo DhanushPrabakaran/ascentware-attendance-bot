@@ -16,7 +16,7 @@ export default function Shifts() {
   });
 
   const fetchShifts = async () => {
-    setShifts(await api.shifts.list());
+    setShifts((await api.shifts.list({ pageSize: 100 })).data);
   };
 
   useEffect(() => {

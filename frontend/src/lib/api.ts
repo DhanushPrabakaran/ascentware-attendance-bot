@@ -5,6 +5,7 @@ import type {
   Attendance,
   AppNotification,
   LeaveStatus,
+  PaginatedResult,
 } from './types';
 
 const TOKEN_KEY = 'authToken';
@@ -69,6 +70,20 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   return res.json();
 }
 
+function qs(params: Record<string, string | number | boolean | undefined>): string {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined) search.set(key, String(value));
+  }
+  const str = search.toString();
+  return str ? `?${str}` : '';
+}
+
+export interface ListParams {
+  page?: number;
+  pageSize?: number;
+}
+
 export interface Me {
   id: string;
   name: string;
@@ -93,7 +108,9 @@ export const api = {
       }),
   },
   employees: {
-    list: () => request<Employee[]>('/admin/employees'),
+    list: (params: ListParams = {}) =>
+      request<PaginatedResult<Employee>>(`/admin/employees${qs(params)}`),
+    get: (id: string) => request<Employee>(`/admin/employees/${id}`),
     myReports: () => request<Employee[]>('/admin/employees/my-reports'),
     hrAssigned: () => request<Employee[]>('/admin/employees/hr-assigned'),
     create: (data: EmployeeInput) =>
@@ -115,7 +132,8 @@ export const api = {
       }),
   },
   shifts: {
-    list: () => request<Shift[]>('/admin/shifts'),
+    list: (params: ListParams = {}) =>
+      request<PaginatedResult<Shift>>(`/admin/shifts${qs(params)}`),
     create: (data: Omit<Shift, 'id'>) =>
       request<Shift>('/admin/shifts', {
         method: 'POST',
@@ -123,7 +141,8 @@ export const api = {
       }),
   },
   leaves: {
-    list: () => request<Leave[]>('/admin/leaves'),
+    list: (params: ListParams & { employeeId?: string } = {}) =>
+      request<PaginatedResult<Leave>>(`/admin/leaves${qs(params)}`),
     get: (id: string) => request<Leave>(`/admin/leaves/${id}`),
     applyOwn: (data: {
       leaveType: string;
@@ -142,7 +161,8 @@ export const api = {
       }),
   },
   attendance: {
-    list: () => request<Attendance[]>('/admin/attendances'),
+    list: (params: ListParams & { employeeId?: string } = {}) =>
+      request<PaginatedResult<Attendance>>(`/admin/attendances${qs(params)}`),
   },
   settings: {
     get: () => request<{ id: string; commonGroupId: string | null }>(
@@ -155,10 +175,8 @@ export const api = {
       ),
   },
   notifications: {
-    list: (unreadOnly = false) =>
-      request<AppNotification[]>(
-        `/notifications${unreadOnly ? '?unreadOnly=true' : ''}`,
-      ),
+    list: (params: ListParams & { unreadOnly?: boolean } = {}) =>
+      request<PaginatedResult<AppNotification>>(`/notifications${qs(params)}`),
     markRead: (id: string) =>
       request<AppNotification>(`/notifications/${id}/read`, {
         method: 'PUT',

@@ -6,6 +6,7 @@ import {
   Delete,
   Body,
   Param,
+  Query,
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
@@ -21,6 +22,8 @@ import { CreateShiftDto } from './dto/create-shift.dto';
 import { UpdateSettingsDto } from './dto/update-settings.dto';
 import { CreateLeaveDto } from './dto/create-leave.dto';
 import { UpdateLeaveStatusDto } from './dto/update-leave-status.dto';
+import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
+import { EmployeeScopedPaginationQueryDto } from '../common/dto/employee-scoped-pagination-query.dto';
 
 @Controller('api/v1/admin')
 export class AdminController {
@@ -39,9 +42,16 @@ export class AdminController {
   }
 
   @Get('employees')
-  async getEmployees(@CurrentUser() user: JwtPayload) {
+  async getEmployees(
+    @CurrentUser() user: JwtPayload,
+    @Query() query: PaginationQueryDto,
+  ) {
     const visibleIds = await this.adminService.getVisibleEmployeeIds(user);
-    return this.adminService.getEmployees(visibleIds);
+    return this.adminService.getEmployees(
+      visibleIds,
+      query.page,
+      query.pageSize,
+    );
   }
 
   @Roles(Role.ADMIN)
@@ -72,7 +82,7 @@ export class AdminController {
     return { success: true };
   }
 
-  // Must stay above any future `employees/:id` GET route, or "my-reports"/"hr-assigned"
+  // Must stay above the `employees/:id` GET route below, or "my-reports"/"hr-assigned"
   // would be captured as the :id param instead.
   @Get('employees/my-reports')
   getMyReports(@CurrentUser() user: JwtPayload) {
@@ -85,9 +95,19 @@ export class AdminController {
     return this.adminService.getHrAssignedEmployees(user.email);
   }
 
+  @Get('employees/:id')
+  async getEmployee(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
+    const employee = await this.adminService.getEmployeeByIdSafe(id);
+    if (!employee) throw new NotFoundException('Employee not found');
+    if (!(await this.adminService.canViewEmployeeData(user, id))) {
+      throw new ForbiddenException('You cannot view this employee');
+    }
+    return employee;
+  }
+
   @Get('shifts')
-  getShifts() {
-    return this.adminService.getShifts();
+  getShifts(@Query() query: PaginationQueryDto) {
+    return this.adminService.getShifts(query.page, query.pageSize);
   }
 
   @Roles(Role.ADMIN)
@@ -97,15 +117,31 @@ export class AdminController {
   }
 
   @Get('leaves')
-  async getLeaves(@CurrentUser() user: JwtPayload) {
+  async getLeaves(
+    @CurrentUser() user: JwtPayload,
+    @Query() query: EmployeeScopedPaginationQueryDto,
+  ) {
     const visibleIds = await this.adminService.getVisibleEmployeeIds(user);
-    return this.adminService.getLeaves(visibleIds);
+    return this.adminService.getLeaves(
+      visibleIds,
+      query.page,
+      query.pageSize,
+      query.employeeId,
+    );
   }
 
   @Get('attendances')
-  async getAttendances(@CurrentUser() user: JwtPayload) {
+  async getAttendances(
+    @CurrentUser() user: JwtPayload,
+    @Query() query: EmployeeScopedPaginationQueryDto,
+  ) {
     const visibleIds = await this.adminService.getVisibleEmployeeIds(user);
-    return this.adminService.getAttendances(visibleIds);
+    return this.adminService.getAttendances(
+      visibleIds,
+      query.page,
+      query.pageSize,
+      query.employeeId,
+    );
   }
 
   @Post('leaves/me')

@@ -2,6 +2,7 @@ import { Controller, Get, Put, Param, Query } from '@nestjs/common';
 import { NotificationsService } from './notifications.service';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
+import { ListNotificationsQueryDto } from './dto/list-notifications-query.dto';
 
 @Controller('api/v1/notifications')
 export class NotificationsController {
@@ -10,10 +11,12 @@ export class NotificationsController {
   @Get()
   list(
     @CurrentUser() user: JwtPayload,
-    @Query('unreadOnly') unreadOnly?: string,
+    @Query() query: ListNotificationsQueryDto,
   ) {
     return this.notificationsService.listForEmployee(user.sub, {
-      unreadOnly: unreadOnly === 'true',
+      unreadOnly: query.unreadOnly === 'true',
+      page: query.page,
+      pageSize: query.pageSize,
     });
   }
 

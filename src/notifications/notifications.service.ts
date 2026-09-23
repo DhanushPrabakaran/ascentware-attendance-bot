@@ -2,6 +2,9 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationType } from '@prisma/client';
 
+const DEFAULT_PAGE = 1;
+const DEFAULT_PAGE_SIZE = 25;
+
 @Injectable()
 export class NotificationsService {
   constructor(private prisma: PrismaService) {}
@@ -39,15 +42,29 @@ export class NotificationsService {
 
   async listForEmployee(
     employeeId: string,
-    opts: { unreadOnly?: boolean } = {},
+    opts: {
+      unreadOnly?: boolean;
+      page?: number;
+      pageSize?: number;
+    } = {},
   ) {
-    return this.prisma.notification.findMany({
-      where: {
-        employeeId,
-        ...(opts.unreadOnly ? { readAt: null } : {}),
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+    const page = opts.page ?? DEFAULT_PAGE;
+    const pageSize = opts.pageSize ?? DEFAULT_PAGE_SIZE;
+    const where = {
+      employeeId,
+      ...(opts.unreadOnly ? { readAt: null } : {}),
+    };
+
+    const [data, total] = await Promise.all([
+      this.prisma.notification.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      this.prisma.notification.count({ where }),
+    ]);
+    return { data, total, page, pageSize };
   }
 
   async markRead(id: string, employeeId: string) {

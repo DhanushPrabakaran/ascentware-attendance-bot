@@ -4,17 +4,25 @@ import { Calendar as CalendarIcon, Filter, Search } from 'lucide-react';
 import { api } from '../lib/api';
 import type { Attendance as AttendanceRecord } from '../lib/types';
 import { DataList, type DataListColumn } from '../components/ui/DataList';
+import { Pagination } from '../components/ui/Pagination';
+
+const PAGE_SIZE = 25;
 
 export default function Attendance() {
   const [attendances, setAttendances] = useState<AttendanceRecord[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
 
   const fetchAttendances = async () => {
-    setAttendances(await api.attendance.list());
+    const result = await api.attendance.list({ page, pageSize: PAGE_SIZE });
+    setAttendances(result.data);
+    setTotal(result.total);
   };
 
   useEffect(() => {
     fetchAttendances();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page]);
 
   const formatTime = (isoString: string | null) => {
     if (!isoString) return '--:--';
@@ -90,6 +98,7 @@ export default function Attendance() {
         rowKey={(a) => a.id}
         emptyMessage="No attendance records found."
       />
+      <Pagination page={page} pageSize={PAGE_SIZE} total={total} onPageChange={setPage} />
     </div>
   );
 }

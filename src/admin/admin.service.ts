@@ -1,6 +1,7 @@
 import {
   Injectable,
   BadRequestException,
+  ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
@@ -8,6 +9,9 @@ import { LeaveStatus, NotificationType, Role, Employee } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import { NotificationsService } from '../notifications/notifications.service';
+
+const DEFAULT_PAGE = 1;
+const DEFAULT_PAGE_SIZE = 25;
 
 @Injectable()
 export class AdminService {
@@ -37,11 +41,33 @@ export class AdminService {
     });
   }
 
-  async getEmployees(visibleIds: string[] | 'ALL' = 'ALL') {
-    return this.prisma.employee.findMany({
-      where: visibleIds === 'ALL' ? undefined : { id: { in: visibleIds } },
-      include: { shift: true },
-    });
+  /** Bcrypt hashes never leave the server via an API response - internal auth flows
+   *  (login, change-password) fetch employees directly and keep the field. */
+  private omitPasswordHash<T extends { passwordHash?: string | null }>(
+    employee: T,
+  ): Omit<T, 'passwordHash'> {
+    const { passwordHash, ...rest } = employee;
+    return rest;
+  }
+
+  async getEmployees(
+    visibleIds: string[] | 'ALL' = 'ALL',
+    page = DEFAULT_PAGE,
+    pageSize = DEFAULT_PAGE_SIZE,
+  ) {
+    const where = visibleIds === 'ALL' ? undefined : { id: { in: visibleIds } };
+    const [rawData, total] = await Promise.all([
+      this.prisma.employee.findMany({
+        where,
+        include: { shift: true },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        orderBy: { name: 'asc' },
+      }),
+      this.prisma.employee.count({ where }),
+    ]);
+    const data = rawData.map((e) => this.omitPasswordHash(e));
+    return { data, total, page, pageSize };
   }
 
   async createEmployee(data: any) {
@@ -57,7 +83,8 @@ export class AdminService {
         ? await bcrypt.hash(data.password, 10)
         : undefined,
     };
-    return this.prisma.employee.create({ data: validData });
+    const employee = await this.prisma.employee.create({ data: validData });
+    return this.omitPasswordHash(employee);
   }
 
   async updateEmployee(id: string, data: any) {
@@ -73,15 +100,20 @@ export class AdminService {
         ? await bcrypt.hash(data.password, 10)
         : undefined,
     };
-    return this.prisma.employee.update({ where: { id }, data: validData });
+    const employee = await this.prisma.employee.update({
+      where: { id },
+      data: validData,
+    });
+    return this.omitPasswordHash(employee);
   }
 
   /** Soft-delete: keeps attendance/leave history intact instead of hard-deleting the row. */
   async deactivateEmployee(id: string) {
-    return this.prisma.employee.update({
+    const employee = await this.prisma.employee.update({
       where: { id },
       data: { isActive: false, deactivatedAt: new Date() },
     });
+    return this.omitPasswordHash(employee);
   }
 
   async findEmployeeByTeamsUserId(teamsUserId: string) {
@@ -97,8 +129,16 @@ export class AdminService {
     });
   }
 
+  // Includes passwordHash - only for internal auth flows (getSettings-style callers
+  // like AuthService.changeOwnPassword). Anything serving an HTTP response to a
+  // client must go through getEmployeeByIdSafe instead.
   async getEmployeeById(id: string) {
     return this.prisma.employee.findUnique({ where: { id } });
+  }
+
+  async getEmployeeByIdSafe(id: string) {
+    const employee = await this.getEmployeeById(id);
+    return employee ? this.omitPasswordHash(employee) : null;
   }
 
   async setEmployeePassword(id: string, plaintextPassword: string) {
@@ -137,8 +177,10 @@ export class AdminService {
    * chain, not a separate role). Small/mid-size org chart - O(depth) queries is fine,
    * no closure table or recursive CTE needed.
    */
-  async getAllReports(managerEmail: string): Promise<Employee[]> {
-    const found: Employee[] = [];
+  async getAllReports(
+    managerEmail: string,
+  ): Promise<Omit<Employee, 'passwordHash'>[]> {
+    const found: Omit<Employee, 'passwordHash'>[] = [];
     // Seeded with the root itself so a cycle in bad data (e.g. two employees
     // accidentally listing each other as manager) can't loop back and count the
     // root - or an already-counted ancestor - as their own report.
@@ -154,7 +196,7 @@ export class AdminService {
       for (const emp of directReports) {
         if (visitedEmails.has(emp.email)) continue; // already counted - convergent chain or a cycle
         visitedEmails.add(emp.email);
-        found.push(emp);
+        found.push(this.omitPasswordHash(emp));
         next.push(emp.email);
       }
       frontier = next;
@@ -179,10 +221,11 @@ export class AdminService {
   }
 
   async getHrAssignedEmployees(hrEmail: string) {
-    return this.prisma.employee.findMany({
+    const employees = await this.prisma.employee.findMany({
       where: { hrEmail },
       include: { shift: true },
     });
+    return employees.map((e) => this.omitPasswordHash(e));
   }
 
   /** ADMIN sees everything; everyone else sees themselves + their reports (+ HR's assigned employees). */
@@ -260,8 +303,16 @@ export class AdminService {
     });
   }
 
-  async getShifts() {
-    return this.prisma.shift.findMany();
+  async getShifts(page = DEFAULT_PAGE, pageSize = DEFAULT_PAGE_SIZE) {
+    const [data, total] = await Promise.all([
+      this.prisma.shift.findMany({
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        orderBy: { name: 'asc' },
+      }),
+      this.prisma.shift.count(),
+    ]);
+    return { data, total, page, pageSize };
   }
 
   async createShift(data: any) {
@@ -278,13 +329,39 @@ export class AdminService {
     return hr ? [hr.id] : [];
   }
 
-  async getLeaves(visibleIds: string[] | 'ALL' = 'ALL') {
-    return this.prisma.leave.findMany({
-      where:
-        visibleIds === 'ALL' ? undefined : { employeeId: { in: visibleIds } },
-      include: { employee: true },
-      orderBy: { startDate: 'desc' },
-    });
+  async getLeaves(
+    visibleIds: string[] | 'ALL' = 'ALL',
+    page = DEFAULT_PAGE,
+    pageSize = DEFAULT_PAGE_SIZE,
+    employeeId?: string,
+  ) {
+    if (
+      employeeId &&
+      visibleIds !== 'ALL' &&
+      !visibleIds.includes(employeeId)
+    ) {
+      throw new ForbiddenException(
+        "You cannot view this employee's leave history",
+      );
+    }
+
+    const where = employeeId
+      ? { employeeId }
+      : visibleIds === 'ALL'
+        ? undefined
+        : { employeeId: { in: visibleIds } };
+
+    const [data, total] = await Promise.all([
+      this.prisma.leave.findMany({
+        where,
+        include: { employee: true },
+        orderBy: { startDate: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      this.prisma.leave.count({ where }),
+    ]);
+    return { data, total, page, pageSize };
   }
 
   async getLeaveById(id: string) {
@@ -382,12 +459,38 @@ export class AdminService {
     return leave;
   }
 
-  async getAttendances(visibleIds: string[] | 'ALL' = 'ALL') {
-    return this.prisma.attendance.findMany({
-      where:
-        visibleIds === 'ALL' ? undefined : { employeeId: { in: visibleIds } },
-      include: { employee: true, dailyTasks: true, breaks: true },
-      orderBy: { date: 'desc' },
-    });
+  async getAttendances(
+    visibleIds: string[] | 'ALL' = 'ALL',
+    page = DEFAULT_PAGE,
+    pageSize = DEFAULT_PAGE_SIZE,
+    employeeId?: string,
+  ) {
+    if (
+      employeeId &&
+      visibleIds !== 'ALL' &&
+      !visibleIds.includes(employeeId)
+    ) {
+      throw new ForbiddenException(
+        "You cannot view this employee's attendance history",
+      );
+    }
+
+    const where = employeeId
+      ? { employeeId }
+      : visibleIds === 'ALL'
+        ? undefined
+        : { employeeId: { in: visibleIds } };
+
+    const [data, total] = await Promise.all([
+      this.prisma.attendance.findMany({
+        where,
+        include: { employee: true, dailyTasks: true, breaks: true },
+        orderBy: { date: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      this.prisma.attendance.count({ where }),
+    ]);
+    return { data, total, page, pageSize };
   }
 }

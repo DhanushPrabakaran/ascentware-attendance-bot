@@ -1,3 +1,10 @@
+export interface PaginatedResult<T> {
+  data: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
 export type Role = 'ADMIN' | 'EMPLOYEE' | 'HR';
 export type LeaveStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
 export type NotificationType =

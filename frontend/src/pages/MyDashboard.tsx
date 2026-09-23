@@ -22,9 +22,12 @@ export default function MyDashboard() {
 
   const load = async () => {
     if (!user) return;
-    const [atts, lvs] = await Promise.all([api.attendance.list(), api.leaves.list()]);
-    setAttendances(atts.filter((a) => a.employeeId === user.id));
-    setLeaves(lvs.filter((l) => l.employeeId === user.id));
+    const [atts, lvs] = await Promise.all([
+      api.attendance.list({ employeeId: user.id, pageSize: 100 }),
+      api.leaves.list({ employeeId: user.id, pageSize: 100 }),
+    ]);
+    setAttendances(atts.data);
+    setLeaves(lvs.data);
     setLoading(false);
   };
 

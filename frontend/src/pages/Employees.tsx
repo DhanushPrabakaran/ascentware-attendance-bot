@@ -7,13 +7,20 @@ import { Modal } from '../components/ui/Modal';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { DataList, type DataListColumn } from '../components/ui/DataList';
+import { Pagination } from '../components/ui/Pagination';
 
 type FormState = Partial<EmployeeInput> & { id?: string };
 
 const emptyForm: FormState = { name: '', email: '', managerEmails: [], hrEmail: '' };
+const PAGE_SIZE = 25;
 
 export default function Employees() {
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  // Separate from the paginated table above - the manager/HR picker dropdowns in the
+  // modal need every employee, not just whichever page the table happens to be showing.
+  const [allEmployees, setAllEmployees] = useState<Employee[]>([]);
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -23,7 +30,18 @@ export default function Employees() {
 
   const fetchEmployees = async () => {
     try {
-      setEmployees(await api.employees.list());
+      const result = await api.employees.list({ page, pageSize: PAGE_SIZE });
+      setEmployees(result.data);
+      setTotal(result.total);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Failed to load employees');
+    }
+  };
+
+  const fetchAllEmployeesForPickers = async () => {
+    try {
+      const result = await api.employees.list({ pageSize: 100 });
+      setAllEmployees(result.data);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to load employees');
     }
@@ -31,7 +49,7 @@ export default function Employees() {
 
   const fetchShifts = async () => {
     try {
-      setShifts(await api.shifts.list());
+      setShifts((await api.shifts.list({ pageSize: 100 })).data);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to load shifts');
     }
@@ -39,6 +57,11 @@ export default function Employees() {
 
   useEffect(() => {
     fetchEmployees();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page]);
+
+  useEffect(() => {
+    fetchAllEmployeesForPickers();
     fetchShifts();
   }, []);
 
@@ -62,7 +85,7 @@ export default function Employees() {
         await api.employees.create(payload);
       }
       setIsModalOpen(false);
-      await fetchEmployees();
+      await Promise.all([fetchEmployees(), fetchAllEmployeesForPickers()]);
     } catch (err) {
       setError(
         err instanceof ApiError
@@ -79,7 +102,7 @@ export default function Employees() {
       return;
     try {
       await api.employees.deactivate(id);
-      await fetchEmployees();
+      await Promise.all([fetchEmployees(), fetchAllEmployeesForPickers()]);
     } catch (err) {
       const message =
         err instanceof ApiError ? err.message : 'Failed to deactivate employee';
@@ -193,6 +216,7 @@ export default function Employees() {
         rowKey={(emp) => emp.id}
         emptyMessage="No employees found."
       />
+      <Pagination page={page} pageSize={PAGE_SIZE} total={total} onPageChange={setPage} />
 
       <Modal
         open={isModalOpen}
@@ -252,7 +276,7 @@ export default function Employees() {
               className="block w-full px-3 py-2 bg-background border border-borderBase rounded-lg text-secondary focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-base sm:text-sm transition-colors"
             >
               <option value="">No HR assigned</option>
-              {employees
+              {allEmployees
                 .filter((e) => e.role === 'HR')
                 .map((hr) => (
                   <option key={hr.email} value={hr.email}>
@@ -266,7 +290,7 @@ export default function Employees() {
               Select Managers
             </label>
             <div className="space-y-2 bg-background border border-borderBase rounded-lg p-3 max-h-48 overflow-y-auto">
-              {employees.map((emp) => (
+              {allEmployees.map((emp) => (
                 <label
                   key={emp.email}
                   className="flex items-center space-x-3 cursor-pointer"
@@ -283,7 +307,7 @@ export default function Employees() {
                   </span>
                 </label>
               ))}
-              {employees.length === 0 && (
+              {allEmployees.length === 0 && (
                 <span className="text-sm text-secondary/40 italic">
                   No employees available.
                 </span>

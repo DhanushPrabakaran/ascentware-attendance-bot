@@ -5,15 +5,22 @@ import { api, ApiError } from '../lib/api';
 import type { Leave } from '../lib/types';
 import { Badge, statusToVariant } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
+import { Pagination } from '../components/ui/Pagination';
+
+const PAGE_SIZE = 25;
 
 export default function Leaves() {
   const [leaves, setLeaves] = useState<Leave[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
   const [error, setError] = useState<string | null>(null);
   const [actingOn, setActingOn] = useState<string | null>(null);
 
   const fetchLeaves = async () => {
     try {
-      setLeaves(await api.leaves.list());
+      const result = await api.leaves.list({ page, pageSize: PAGE_SIZE });
+      setLeaves(result.data);
+      setTotal(result.total);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to load leaves');
     }
@@ -21,7 +28,8 @@ export default function Leaves() {
 
   useEffect(() => {
     fetchLeaves();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page]);
 
   const decide = async (id: string, status: 'APPROVED' | 'REJECTED') => {
     setActingOn(id);
@@ -113,6 +121,7 @@ export default function Leaves() {
           )}
         </ul>
       </div>
+      <Pagination page={page} pageSize={PAGE_SIZE} total={total} onPageChange={setPage} />
     </div>
   );
 }

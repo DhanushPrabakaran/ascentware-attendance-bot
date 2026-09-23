@@ -10,7 +10,7 @@ export function NotificationBell() {
 
   const load = async () => {
     try {
-      setNotifications(await api.notifications.list());
+      setNotifications((await api.notifications.list({ pageSize: 20 })).data);
     } catch {
       // best-effort - a failed notification fetch shouldn't break the page
     }

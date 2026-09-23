@@ -17,19 +17,25 @@ export default function EmployeeDetail() {
   }, [id]);
 
   const fetchData = async () => {
+    if (!id) return;
     setLoading(true);
     try {
+      // Targeted, employeeId-scoped endpoints rather than fetching every employee's
+      // records and filtering client-side - the server already enforces (via
+      // canViewEmployeeData) whether the caller may see this specific employee, so a
+      // 403/404 here naturally falls through to the "not found" state below.
       const [empData, attData, leaveData] = await Promise.all([
-        api.employees.list(),
-        api.attendance.list(),
-        api.leaves.list(),
+        api.employees.get(id),
+        api.attendance.list({ employeeId: id, pageSize: 100 }),
+        api.leaves.list({ employeeId: id, pageSize: 100 }),
       ]);
 
-      setEmployee(empData.find((e) => e.id === id) || null);
-      setAttendances(attData.filter((a) => a.employeeId === id));
-      setLeaves(leaveData.filter((l) => l.employeeId === id));
+      setEmployee(empData);
+      setAttendances(attData.data);
+      setLeaves(leaveData.data);
     } catch (error) {
       console.error('Failed to fetch data', error);
+      setEmployee(null);
     }
     setLoading(false);
   };

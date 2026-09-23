@@ -11,16 +11,20 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Command-center overview wants the whole current roster, not a paginated slice -
+    // pageSize is capped at 100 server-side, which comfortably covers a company this size.
     Promise.all([
-      api.employees.list(),
-      api.attendance.list(),
-      api.leaves.list(),
+      api.employees.list({ pageSize: 100 }),
+      api.attendance.list({ pageSize: 100 }),
+      api.leaves.list({ pageSize: 100 }),
     ]).then(([emps, atts, lvs]) => {
-      setEmployees(emps);
+      setEmployees(emps.data);
       const today = new Date().toISOString().split('T')[0];
-      setAttendances(atts.filter((a) => a.date.startsWith(today)));
+      setAttendances(atts.data.filter((a) => a.date.startsWith(today)));
       setLeaves(
-        lvs.filter((l) => l.startDate.startsWith(today) && l.status === 'APPROVED'),
+        lvs.data.filter(
+          (l) => l.startDate.startsWith(today) && l.status === 'APPROVED',
+        ),
       );
       setLoading(false);
     });
