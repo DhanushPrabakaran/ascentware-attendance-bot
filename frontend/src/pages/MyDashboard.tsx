@@ -7,6 +7,7 @@ import { DataList, type DataListColumn } from '../components/ui/DataList';
 import { Badge, statusToVariant } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
+import { DailyTasksPanel } from '../components/DailyTasksPanel';
 
 const emptyForm = { leaveType: 'Sick', startDate: '', endDate: '', reason: '' };
 
@@ -19,6 +20,7 @@ export default function MyDashboard() {
   const [form, setForm] = useState(emptyForm);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [expandedAttendanceId, setExpandedAttendanceId] = useState<string | null>(null);
 
   const load = async () => {
     if (!user) return;
@@ -69,6 +71,10 @@ export default function MyDashboard() {
       header: 'Hours',
       render: (a) => (a.workingMinutes > 0 ? (a.workingMinutes / 60).toFixed(1) + 'h' : '--'),
     },
+    {
+      header: 'Tasks',
+      render: (a) => (a.dailyTasks && a.dailyTasks.length > 0 ? `${a.dailyTasks.length} planned` : '--'),
+    },
   ];
 
   const leaveColumns: DataListColumn<Leave>[] = [
@@ -118,11 +124,15 @@ export default function MyDashboard() {
 
       <div>
         <h3 className="text-lg font-semibold text-secondary mb-3">My Attendance History</h3>
+        <p className="text-xs text-secondary/40 mb-2">Click a row to see that day's planned tasks.</p>
         <DataList
           columns={attendanceColumns}
           rows={attendances}
           rowKey={(a) => a.id}
           emptyMessage="No attendance records yet."
+          expandedRowKey={expandedAttendanceId}
+          onRowClick={(a) => setExpandedAttendanceId(expandedAttendanceId === a.id ? null : a.id)}
+          renderExpanded={(a) => <DailyTasksPanel tasks={a.dailyTasks} />}
         />
       </div>
 

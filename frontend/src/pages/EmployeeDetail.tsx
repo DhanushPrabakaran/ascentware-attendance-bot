@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { CalendarOff, CheckCircle2, XCircle, User, Briefcase, Mail, Activity, ArrowLeft } from 'lucide-react';
 import { api } from '../lib/api';
 import type { Employee, Attendance, Leave } from '../lib/types';
+import { DailyTasksPanel } from '../components/DailyTasksPanel';
 
 export default function EmployeeDetail() {
   const { id } = useParams();
@@ -10,6 +11,7 @@ export default function EmployeeDetail() {
   const [attendances, setAttendances] = useState<Attendance[]>([]);
   const [leaves, setLeaves] = useState<Leave[]>([]);
   const [loading, setLoading] = useState(true);
+  const [expandedAttendanceId, setExpandedAttendanceId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -144,17 +146,29 @@ export default function EmployeeDetail() {
             ) : (
               <div className="space-y-3">
                 {sortedAttendances.map(att => (
-                  <div key={att.id} className="flex justify-between items-center p-4 bg-background rounded-lg border border-borderBase hover:border-borderBase/80 transition-colors">
-                    <div>
-                      <div className="text-sm font-bold text-secondary mb-1">{new Date(att.date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</div>
-                      <div className="text-xs font-medium text-secondary/50">
-                        In: {new Date(att.checkIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        {att.checkOut && ` • Out: ${new Date(att.checkOut).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
+                  <div key={att.id} className="bg-background rounded-lg border border-borderBase hover:border-borderBase/80 transition-colors overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => setExpandedAttendanceId(expandedAttendanceId === att.id ? null : att.id)}
+                      className="w-full flex justify-between items-center p-4 text-left"
+                    >
+                      <div>
+                        <div className="text-sm font-bold text-secondary mb-1">{new Date(att.date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</div>
+                        <div className="text-xs font-medium text-secondary/50">
+                          In: {new Date(att.checkIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          {att.checkOut && ` • Out: ${new Date(att.checkOut).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
+                          {att.dailyTasks && att.dailyTasks.length > 0 && ` • ${att.dailyTasks.length} task${att.dailyTasks.length === 1 ? '' : 's'}`}
+                        </div>
                       </div>
-                    </div>
-                    <span className="px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-surfaceHover text-secondary/70 border border-borderBase">
-                      {att.status.replace('_', ' ')}
-                    </span>
+                      <span className="px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-surfaceHover text-secondary/70 border border-borderBase shrink-0">
+                        {att.status.replace('_', ' ')}
+                      </span>
+                    </button>
+                    {expandedAttendanceId === att.id && (
+                      <div className="border-t border-borderBase">
+                        <DailyTasksPanel tasks={att.dailyTasks} />
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import { Fragment, ReactNode } from 'react';
 
 export interface DataListColumn<T> {
   header: string;
@@ -16,11 +16,19 @@ export function DataList<T>({
   rows,
   rowKey,
   emptyMessage = 'No records found.',
+  expandedRowKey,
+  onRowClick,
+  renderExpanded,
 }: {
   columns: DataListColumn<T>[];
   rows: T[];
   rowKey: (row: T) => string;
   emptyMessage?: string;
+  /** The rowKey of the currently expanded row, if any - paired with onRowClick/renderExpanded
+   *  to let a page show extra detail (e.g. that day's planned tasks) without a separate page. */
+  expandedRowKey?: string | null;
+  onRowClick?: (row: T) => void;
+  renderExpanded?: (row: T) => ReactNode;
 }) {
   if (rows.length === 0) {
     return (
@@ -49,19 +57,31 @@ export function DataList<T>({
           </thead>
           <tbody className="divide-y divide-borderBase">
             {rows.map((row) => (
-              <tr key={rowKey(row)} className="hover:bg-white/5 transition-colors">
-                {columns.map((col) => (
-                  <td
-                    key={col.header}
-                    className={
-                      col.className ||
-                      'px-6 py-4 whitespace-nowrap text-sm text-secondary/80'
-                    }
-                  >
-                    {col.render(row)}
-                  </td>
-                ))}
-              </tr>
+              <Fragment key={rowKey(row)}>
+                <tr
+                  onClick={onRowClick ? () => onRowClick(row) : undefined}
+                  className={`hover:bg-white/5 transition-colors ${onRowClick ? 'cursor-pointer' : ''}`}
+                >
+                  {columns.map((col) => (
+                    <td
+                      key={col.header}
+                      className={
+                        col.className ||
+                        'px-6 py-4 whitespace-nowrap text-sm text-secondary/80'
+                      }
+                    >
+                      {col.render(row)}
+                    </td>
+                  ))}
+                </tr>
+                {renderExpanded && expandedRowKey === rowKey(row) && (
+                  <tr>
+                    <td colSpan={columns.length} className="bg-background/50 border-t border-borderBase">
+                      {renderExpanded(row)}
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
             ))}
           </tbody>
         </table>
@@ -69,23 +89,34 @@ export function DataList<T>({
 
       <div className="block md:hidden divide-y divide-borderBase">
         {rows.map((row) => (
-          <div key={rowKey(row)} className="p-4 space-y-2">
-            {columns.map((col, i) =>
-              i === 0 ? (
-                <div key={col.header}>{col.render(row)}</div>
-              ) : (
-                <div
-                  key={col.header}
-                  className="flex justify-between items-center gap-4 text-sm"
-                >
-                  <span className="text-xs font-semibold text-secondary/50 uppercase tracking-wider shrink-0">
-                    {col.header}
-                  </span>
-                  <span className="text-secondary/80 text-right">
-                    {col.render(row)}
-                  </span>
-                </div>
-              ),
+          <div
+            key={rowKey(row)}
+            onClick={onRowClick ? () => onRowClick(row) : undefined}
+            className={onRowClick ? 'cursor-pointer' : undefined}
+          >
+            <div className="p-4 space-y-2">
+              {columns.map((col, i) =>
+                i === 0 ? (
+                  <div key={col.header}>{col.render(row)}</div>
+                ) : (
+                  <div
+                    key={col.header}
+                    className="flex justify-between items-center gap-4 text-sm"
+                  >
+                    <span className="text-xs font-semibold text-secondary/50 uppercase tracking-wider shrink-0">
+                      {col.header}
+                    </span>
+                    <span className="text-secondary/80 text-right">
+                      {col.render(row)}
+                    </span>
+                  </div>
+                ),
+              )}
+            </div>
+            {renderExpanded && expandedRowKey === rowKey(row) && (
+              <div className="bg-background/50 border-t border-borderBase">
+                {renderExpanded(row)}
+              </div>
             )}
           </div>
         ))}

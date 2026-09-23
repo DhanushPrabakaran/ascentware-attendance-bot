@@ -20,18 +20,23 @@ export class EndBreakHandler extends BaseActionHandler {
     value: any,
     replyToId?: string,
   ): Promise<HandlerResult> {
-    await this.attendanceService.endBreak(value.attendanceId);
+    const breakRecord = await this.attendanceService.endBreak(
+      value.attendanceId,
+    );
 
     const employeeName = context.activity.from.name || 'An employee';
     await this.botHelper.notifyGroupChat(
       context,
-      `💻 **${employeeName}** is back from break.`,
+      `💻 **${employeeName}** is back from break (${breakRecord.duration} min).`,
     );
 
     return this.respond(
       [
         this.cardActivity(
-          CardBuilder.getReadOnlyReceiptCard('Break Ended', 'Back to work!'),
+          CardBuilder.getReadOnlyReceiptCard(
+            'Break Ended',
+            `You were on break for ${breakRecord.duration} min. Back to work!`,
+          ),
         ),
         this.cardActivity(
           CardBuilder.getWorkingCard(value.attendanceId, employeeName),

@@ -41,7 +41,12 @@ export function statusToVariant(status: string): BadgeVariant {
     case 'PENDING':
     case 'on_break':
     case 'ON_BREAK':
+    case 'in_progress':
       return 'warning';
+    case 'completed':
+      return 'success';
+    case 'not_started':
+      return 'neutral';
     default:
       return 'neutral';
   }
