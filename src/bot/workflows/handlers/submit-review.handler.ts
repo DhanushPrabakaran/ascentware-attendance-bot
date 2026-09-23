@@ -29,7 +29,7 @@ export class SubmitReviewHandler extends BaseActionHandler {
         tasksToUpdate.push({
           id: taskId,
           status: value[key],
-          timeTakenMinutes: value[`timeTaken_${taskId}`],
+          timeTakenMinutes: parseInt(value[`timeTaken_${taskId}`], 10) || 0,
           remarks: value[`remarks_${taskId}`] || '',
         });
       }
