@@ -1,42 +1,52 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Ascentware Attendance Bot
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+A corporate attendance and leave-management system: a Microsoft Teams bot for
+check-in/check-out/breaks/daily plans/leave requests, backed by a NestJS +
+Prisma (Postgres) API, with a React web dashboard for self-service and
+admin/HR/manager views.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Roles
 
-## Description
-
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+There are three explicit roles (`Employee.role`): `ADMIN`, `EMPLOYEE`, `HR`.
+"Manager" and "Super Manager" are **not** separate roles - they're emergent
+from the reporting chain. Any employee who appears in another employee's
+`managerEmails` is a manager of that employee; walking the chain recursively
+(`AdminService.getAllReports`) surfaces indirect reports too ("super
+manager" is just a manager several levels up). HR is assigned per-employee
+via `Employee.hrEmail` (a business-partner model, not company-wide) - HR is
+notified when an assigned employee applies for leave and when their manager
+decides, but does not approve leave themselves; only the reporting manager
+(or an admin) can approve/reject.
 
 ## Project setup
 
 ```bash
-$ npm install
+npm install
+cp .env.example .env   # fill in DATABASE_URL, CLIENT_ID/CLIENT_SECRET, JWT_SECRET
+npx prisma migrate dev
+npx prisma db seed
+npm run start:dev
 ```
+
+The frontend (`frontend/`) is built automatically as part of `npm run
+build`/`npm run start:prod` and served by the same NestJS process; for
+frontend-only iteration run `npm run dev --prefix frontend` separately
+against the API.
+
+Every seeded account logs in with its email and the password printed by the
+seed script (`"password"` by default, override with `SEED_ADMIN_PASSWORD`)
+via the web dashboard's login page.
+
+## Environment variables
+
+See [.env.example](.env.example) for the full list with descriptions
+(`DATABASE_URL`, `PORT`, `CLIENT_ID`/`CLIENT_SECRET`, `JWT_SECRET`,
+`JWT_EXPIRES_IN`, `NODE_ENV`, plus the bot's optional tenant setting and the
+seed script's optional default password).
 
 ## Compile and run the project
 
 ```bash
-# development
-$ npm run start
-
 # watch mode
 $ npm run start:dev
 
@@ -50,49 +60,53 @@ $ npm run start:prod
 # unit tests
 $ npm run test
 
-# e2e tests
-$ npm run test:e2e
-
 # test coverage
 $ npm run test:cov
 ```
 
+Unit tests mock Prisma (`jest-mock-extended`) rather than hitting a real
+database, so they run without any Postgres instance, locally or in CI. A
+Postgres-backed e2e suite (`test/jest-e2e.json`) is scaffolded but not yet
+populated - a real e2e suite is a documented follow-up, not built in this
+pass.
+
+## Health check
+
+`GET /api/v1/health` (public) runs a `SELECT 1` against Postgres and returns
+`{status, uptime, db}`, 503 if the database is unreachable. Used by
+`render.yaml`'s `healthCheckPath`.
+
 ## Deployment
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+`render.yaml` deploys this as a single Render web service (Node build +
+`start:prod`), with `DATABASE_URL`, `CLIENT_ID`, `CLIENT_SECRET`, and
+`JWT_SECRET` set as secrets in the Render dashboard (`sync: false`).
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+## Known limitations / deferred work
 
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
-```
-
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+- **Authentication is per-employee email + password (bcrypt + JWT), not
+  Azure AD/Entra SSO.** The bot's own AAD app registration already exists
+  and could back a future SSO upgrade for the web dashboard, but that's not
+  built yet - this was an explicit scope decision to ship per-employee login
+  first.
+- **Bot conversation/activity state is process-local** (in-memory
+  `MemoryStorage` + a bounded LRU tracker), not shared across instances.
+  Fine for a single Render instance; would need Redis-backed storage before
+  running multiple bot instances behind a load balancer.
+- **Leave decisions made from the web dashboard don't trigger a live Teams
+  DM to the employee** (they do create an in-app `Notification` row, and the
+  bot-originated flow does DM). Proactively messaging a user from an
+  HTTP-triggered action requires a persisted `ConversationReference` per
+  employee, captured from their first bot turn - not built this pass; a
+  natural extension point is a future `Employee.teamsConversationRef Json?`
+  column.
+- Also out of scope for now: leave balance/accrual tracking, timezone-aware
+  attendance, overtime calculation, holiday calendars, multi-tenant support,
+  and password reset via email/invite links (passwords are currently
+  admin-set only).
 
 ## Resources
 
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+- [NestJS Documentation](https://docs.nestjs.com)
+- [Prisma Documentation](https://www.prisma.io/docs)
+- [Bot Framework / Teams bot documentation](https://learn.microsoft.com/microsoftteams/platform/bots/how-to/create-a-bot-for-teams)
