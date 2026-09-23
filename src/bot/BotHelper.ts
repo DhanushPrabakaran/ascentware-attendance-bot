@@ -145,18 +145,15 @@ export class BotHelper {
   }
 
   /**
-   * Settings.commonGroupId holds a comma-separated list of conversation IDs (not a
-   * schema array - avoids a migration, and a single ID still works unchanged). Every
-   * ID in the list gets the announcement; one bad ID doesn't block the rest.
+   * Settings.commonGroupId (via AdminService.getGroupChatIds) holds every conversation
+   * the bot has been auto-registered into via the membersAdded handler in
+   * TeamsAttendanceBot, plus any manually added there. Every one gets the announcement;
+   * one bad/stale ID doesn't block the rest. No hardcoded fallback group - if the bot
+   * hasn't been added anywhere yet, there's nowhere to send this.
    */
   async notifyGroupChat(context: TurnContext, message: string) {
-    const settings = await this.adminService.getSettings();
-    const groupChatIds = (
-      settings.commonGroupId || '19:adc81e9132dd45e6b3dfc769a8b4e2ad@thread.v2'
-    )
-      .split(',')
-      .map((id) => id.trim())
-      .filter(Boolean);
+    const groupChatIds = await this.adminService.getGroupChatIds();
+    if (groupChatIds.length === 0) return;
 
     const appId =
       process.env.CLIENT_ID ||

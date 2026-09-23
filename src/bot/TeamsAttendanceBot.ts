@@ -245,5 +245,51 @@ export class TeamsAttendanceBot {
         }
       }
     });
+
+    // Auto-registers/unregisters group announcement targets so an admin never has to
+    // manually copy a conversation ID out of a "/groupid" reply into Settings - adding
+    // the bot to a group is enough on its own.
+    app.onConversationUpdate('membersAdded', async (context, state) => {
+      const botId = context.activity.recipient?.id;
+      const botWasAdded = (context.activity.membersAdded || []).some(
+        (m: any) => m.id === botId,
+      );
+      if (!botWasAdded) return;
+
+      const conversationId = context.activity.conversation?.id;
+      if (!conversationId) return;
+
+      await this.adminService.registerGroupChat(conversationId);
+      this.logger.log(
+        `Bot added to conversation ${conversationId}; registered for group announcements.`,
+        TeamsAttendanceBot.name,
+      );
+      try {
+        await (context as any).sendActivity(
+          MessageFactory.text(
+            "👋 Thanks for adding me! I'll post attendance and leave announcements in this chat.",
+          ),
+        );
+      } catch (e) {
+        // Best-effort welcome message - registration above already succeeded either way.
+      }
+    });
+
+    app.onConversationUpdate('membersRemoved', async (context, state) => {
+      const botId = context.activity.recipient?.id;
+      const botWasRemoved = (context.activity.membersRemoved || []).some(
+        (m: any) => m.id === botId,
+      );
+      if (!botWasRemoved) return;
+
+      const conversationId = context.activity.conversation?.id;
+      if (!conversationId) return;
+
+      await this.adminService.unregisterGroupChat(conversationId);
+      this.logger.log(
+        `Bot removed from conversation ${conversationId}; unregistered from group announcements.`,
+        TeamsAttendanceBot.name,
+      );
+    });
   }
 }

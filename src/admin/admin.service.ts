@@ -41,6 +41,39 @@ export class AdminService {
     });
   }
 
+  /** commonGroupId holds a comma-separated list, not a schema array - avoids a migration. */
+  private parseGroupChatIds(raw: string | null): string[] {
+    return (raw || '')
+      .split(',')
+      .map((id) => id.trim())
+      .filter(Boolean);
+  }
+
+  async getGroupChatIds(): Promise<string[]> {
+    const settings = await this.getSettings();
+    return this.parseGroupChatIds(settings.commonGroupId);
+  }
+
+  /** Called from TeamsAttendanceBot's membersAdded handler when the bot itself joins a
+   *  conversation - group announcements should reach it without an admin manually
+   *  copying an ID out of a slash command reply. No-op if already registered. */
+  async registerGroupChat(conversationId: string) {
+    const ids = await this.getGroupChatIds();
+    if (ids.includes(conversationId)) return;
+    await this.updateSettings({
+      commonGroupId: [...ids, conversationId].join(','),
+    });
+  }
+
+  /** Mirror of registerGroupChat for the membersRemoved event, so a group the bot was
+   *  removed from stops being a (now-failing) send target automatically. */
+  async unregisterGroupChat(conversationId: string) {
+    const ids = await this.getGroupChatIds();
+    const next = ids.filter((id) => id !== conversationId);
+    if (next.length === ids.length) return;
+    await this.updateSettings({ commonGroupId: next.join(',') });
+  }
+
   /** Bcrypt hashes never leave the server via an API response - internal auth flows
    *  (login, change-password) fetch employees directly and keep the field. */
   private omitPasswordHash<T extends { passwordHash?: string | null }>(
