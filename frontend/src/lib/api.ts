@@ -1,6 +1,7 @@
 import type {
   Employee,
   Shift,
+  TeamsGroup,
   Leave,
   Attendance,
   AppNotification,
@@ -149,6 +150,8 @@ export const api = {
       startDate: string;
       endDate: string;
       reason: string;
+      startTime?: string;
+      endTime?: string;
     }) =>
       request<Leave>('/admin/leaves/me', {
         method: 'POST',
@@ -164,15 +167,25 @@ export const api = {
     list: (params: ListParams & { employeeId?: string } = {}) =>
       request<PaginatedResult<Attendance>>(`/admin/attendances${qs(params)}`),
   },
-  settings: {
-    get: () => request<{ id: string; commonGroupId: string | null }>(
-      '/admin/settings',
-    ),
-    update: (data: { commonGroupId?: string }) =>
-      request<{ id: string; commonGroupId: string | null }>(
-        '/admin/settings',
-        { method: 'PUT', body: JSON.stringify(data) },
-      ),
+  groups: {
+    list: () => request<TeamsGroup[]>('/admin/groups'),
+    test: (conversationId: string) =>
+      request<{ success: boolean }>('/admin/groups/test', {
+        method: 'POST',
+        body: JSON.stringify({ conversationId }),
+      }),
+    create: (data: GroupInput) =>
+      request<TeamsGroup>('/admin/groups', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    update: (id: string, data: Partial<GroupInput>) =>
+      request<TeamsGroup>(`/admin/groups/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      }),
+    remove: (id: string) =>
+      request<TeamsGroup>(`/admin/groups/${id}`, { method: 'DELETE' }),
   },
   notifications: {
     list: (params: ListParams & { unreadOnly?: boolean } = {}) =>
@@ -196,5 +209,12 @@ export interface EmployeeInput {
   managerEmails?: string[];
   hrEmail?: string | null;
   shiftId?: string | null;
+  groupIds?: string[];
   password?: string;
+}
+
+export interface GroupInput {
+  name: string;
+  conversationId: string;
+  isDefault?: boolean;
 }

@@ -6,6 +6,7 @@ import type { Leave } from '../lib/types';
 import { Badge, statusToVariant } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Pagination } from '../components/ui/Pagination';
+import { describeLeave } from '../lib/format';
 
 const PAGE_SIZE = 25;
 
@@ -80,8 +81,7 @@ export default function Leaves() {
                       </span>
                     </div>
                     <p className="text-xs font-semibold text-secondary/60 uppercase tracking-wider">
-                      {l.leaveType} · {new Date(l.startDate).toLocaleDateString()} -{' '}
-                      {new Date(l.endDate).toLocaleDateString()}
+                      {l.leaveType} · {describeLeave(l)}
                     </p>
                     <p className="text-secondary/80 mt-2 text-sm bg-background p-4 rounded-lg border border-borderBase shadow-inner whitespace-pre-wrap">
                       {l.reason}

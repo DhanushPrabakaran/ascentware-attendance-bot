@@ -7,6 +7,7 @@ import { ActivityTrackerService } from './services/activity-tracker.service';
 import { AttendanceService } from '../attendance/attendance.service';
 import { AdminService } from '../admin/admin.service';
 import { BotHelper } from './BotHelper';
+import { GroupsService } from '../groups/groups.service';
 
 export class TeamsAttendanceBot {
   constructor(
@@ -16,7 +17,12 @@ export class TeamsAttendanceBot {
     private readonly adminService: AdminService,
     private readonly logger: Logger,
     private readonly botHelper: BotHelper,
+    private readonly groupsService: GroupsService,
   ) {}
+
+  private groupIdInstructions(conversationId?: string) {
+    return `Conversation ID: \`${conversationId}\`\n\nTo post attendance and leave announcements here, open the web dashboard → Groups → Add Group, paste this ID, send a test message, then save. Assign employees to the group from their Edit Employee screen.`;
+  }
 
   /**
    * Resolves the Teams user to an existing Employee record. Employees are provisioned by
@@ -76,6 +82,23 @@ export class TeamsAttendanceBot {
   }
 
   public registerHandlers(app: AgentApplication<TurnState>) {
+    // Lets the web dashboard send proactive messages (Groups → test message) later,
+    // outside a bot turn. Never blocks the turn if the write fails.
+    app.onTurn('beforeTurn', async (context) => {
+      try {
+        await this.adminService.rememberBotEndpoint(
+          context.activity.serviceUrl,
+          context.activity.conversation?.tenantId,
+        );
+      } catch (e: any) {
+        this.logger.warn(
+          `Failed to store bot service URL: ${e.message}`,
+          TeamsAttendanceBot.name,
+        );
+      }
+      return true;
+    });
+
     const handleAction = async (
       context: TurnContext,
       value: any,
@@ -164,14 +187,18 @@ export class TeamsAttendanceBot {
 
     app.onMessage(/.*/, async (context, state) => {
       // Diagnostic command, intentionally checked before ensureAuthenticated - an admin
-      // wiring up a new group/channel for notifyGroupChat's commonGroupId setting needs
-      // this ID before anyone in that conversation is necessarily linked yet.
-      const text = (context.activity.text || '').trim().toLowerCase();
+      // wiring up a new group on the Groups screen needs this ID before anyone in that
+      // conversation is necessarily linked yet.
+      // In group chats the bot only sees @mentions, so the text arrives as
+      // "<at>Bot</at> /groupid" - drop the mention before matching.
+      const text = (context.activity.text || '')
+        .replace(/<at>.*?<\/at>/gi, '')
+        .trim()
+        .toLowerCase();
       if (text === '/groupid' || text === 'group id') {
-        const conversation = context.activity.conversation;
         await (context as any).sendActivity(
           MessageFactory.text(
-            `Conversation ID: \`${conversation?.id}\`\nType: ${conversation?.conversationType || 'unknown'}\n\nAdd this ID to Settings → Common Group ID to send attendance notifications here too. To notify multiple groups, separate their IDs with commas.`,
+            this.groupIdInstructions(context.activity.conversation?.id),
           ),
         );
         return;
@@ -193,9 +220,13 @@ export class TeamsAttendanceBot {
         card = CardBuilder.getCheckInCard(employeeName, quote);
       } else if (userState.status === 'on_break') {
         // attendanceId is always set alongside a non-"not_checked_in" status - see AttendanceService.getStatus.
+        const openBreak = await this.attendanceService.getOpenBreak(
+          userState.attendanceId!,
+        );
         card = CardBuilder.getOnBreakCard(
           userState.attendanceId!,
           employeeName,
+          openBreak?.type,
         );
       } else {
         // They are checked_in
@@ -246,9 +277,10 @@ export class TeamsAttendanceBot {
       }
     });
 
-    // Auto-registers/unregisters group announcement targets so an admin never has to
-    // manually copy a conversation ID out of a "/groupid" reply into Settings - adding
-    // the bot to a group is enough on its own.
+    // Joining a chat never makes it an announcement target on its own - an admin adds it
+    // on the Groups screen after a test send, so an arbitrary chat can't start receiving
+    // everyone's check-ins. Joining replies with the ID needed for that, and re-activates
+    // the group if it was registered before the bot was removed.
     app.onConversationUpdate('membersAdded', async (context, state) => {
       const botId = context.activity.recipient?.id;
       const botWasAdded = (context.activity.membersAdded || []).some(
@@ -259,22 +291,29 @@ export class TeamsAttendanceBot {
       const conversationId = context.activity.conversation?.id;
       if (!conversationId) return;
 
-      await this.adminService.registerGroupChat(conversationId);
+      const known = await this.groupsService.setActiveByConversationId(
+        conversationId,
+        true,
+      );
       this.logger.log(
-        `Bot added to conversation ${conversationId}; registered for group announcements.`,
+        `Bot added to conversation ${conversationId}${known ? '; re-activated existing group' : ''}.`,
         TeamsAttendanceBot.name,
       );
       try {
         await (context as any).sendActivity(
           MessageFactory.text(
-            "👋 Thanks for adding me! I'll post attendance and leave announcements in this chat.",
+            known
+              ? "👋 I'm back! I'll post attendance and leave announcements in this chat again."
+              : `👋 Thanks for adding me!\n\n${this.groupIdInstructions(conversationId)}`,
           ),
         );
       } catch (e) {
-        // Best-effort welcome message - registration above already succeeded either way.
+        // Best-effort welcome message.
       }
     });
 
+    // Stops sending to a chat the bot was removed from (sends would only fail) without
+    // deleting the group, so employee assignments survive if the bot is re-added.
     app.onConversationUpdate('membersRemoved', async (context, state) => {
       const botId = context.activity.recipient?.id;
       const botWasRemoved = (context.activity.membersRemoved || []).some(
@@ -285,9 +324,9 @@ export class TeamsAttendanceBot {
       const conversationId = context.activity.conversation?.id;
       if (!conversationId) return;
 
-      await this.adminService.unregisterGroupChat(conversationId);
+      await this.groupsService.setActiveByConversationId(conversationId, false);
       this.logger.log(
-        `Bot removed from conversation ${conversationId}; unregistered from group announcements.`,
+        `Bot removed from conversation ${conversationId}; group marked inactive.`,
         TeamsAttendanceBot.name,
       );
     });

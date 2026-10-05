@@ -29,8 +29,23 @@ export class CheckInHandler extends BaseActionHandler {
       `✅ **${employeeName}** has just checked in for the day.`,
     );
 
+    const permissionMinutes =
+      await this.attendanceService.getApprovedPermissionMinutesToday(
+        context.activity.from.id,
+      );
+
     return this.respond(
-      [this.cardActivity(PlanTasksCard.getCard(attendance.id))],
+      [
+        this.cardActivity(
+          PlanTasksCard.getCard(
+            attendance.id,
+            undefined,
+            permissionMinutes > 0
+              ? { permissionMinutes: String(permissionMinutes) }
+              : undefined,
+          ),
+        ),
+      ],
       {
         setActivities: [
           { actionKey: attendance.id + '_saveAllTasks', activityId: '' },

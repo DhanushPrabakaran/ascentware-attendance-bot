@@ -8,8 +8,28 @@ import { Badge, statusToVariant } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
 import { DailyTasksPanel } from '../components/DailyTasksPanel';
+import { breakSummary, describeLeave, formatMinutes, workedTime } from '../lib/format';
 
-const emptyForm = { leaveType: 'Sick', startDate: '', endDate: '', reason: '' };
+type LeaveMode = 'days' | 'hours';
+
+const emptyForm = {
+  leaveType: 'Sick',
+  mode: 'days' as LeaveMode,
+  startDate: '',
+  endDate: '',
+  startTime: '',
+  endTime: '',
+  reason: '',
+};
+
+/** Minutes between two "HH:mm" values, or null if either is blank or To isn't after From. */
+function hoursFormDuration(from: string, to: string): number | null {
+  if (!from || !to) return null;
+  const [fh, fm] = from.split(':').map(Number);
+  const [th, tm] = to.split(':').map(Number);
+  const minutes = th * 60 + tm - (fh * 60 + fm);
+  return minutes > 0 ? minutes : null;
+}
 
 export default function MyDashboard() {
   const { user } = useAuth();
@@ -43,7 +63,19 @@ export default function MyDashboard() {
     setSubmitting(true);
     setError(null);
     try {
-      await api.leaves.applyOwn(form);
+      const inHours = form.mode === 'hours';
+      if (inHours && hoursFormDuration(form.startTime, form.endTime) === null) {
+        setError('To time must be after From time.');
+        return;
+      }
+      await api.leaves.applyOwn({
+        leaveType: form.leaveType,
+        startDate: form.startDate,
+        // Leave in hours is a single day.
+        endDate: inHours ? form.startDate : form.endDate,
+        reason: form.reason,
+        ...(inHours ? { startTime: form.startTime, endTime: form.endTime } : {}),
+      });
       setModalOpen(false);
       setForm(emptyForm);
       await load();
@@ -68,9 +100,19 @@ export default function MyDashboard() {
           : '--:--',
     },
     {
-      header: 'Hours',
-      render: (a) => (a.workingMinutes > 0 ? (a.workingMinutes / 60).toFixed(1) + 'h' : '--'),
+      header: 'Worked',
+      render: (a) => (
+        <span>
+          {workedTime(a)}
+          {a.autoCheckedOut && (
+            <span className="ml-2" title="You didn't check out - closed automatically at midnight">
+              <Badge variant="warning">Auto</Badge>
+            </span>
+          )}
+        </span>
+      ),
     },
+    { header: 'Breaks', render: (a) => breakSummary(a) },
     {
       header: 'Tasks',
       render: (a) => (a.dailyTasks && a.dailyTasks.length > 0 ? `${a.dailyTasks.length} planned` : '--'),
@@ -83,9 +125,7 @@ export default function MyDashboard() {
       render: (l) => (
         <div>
           <div className="text-sm font-semibold text-secondary">{l.leaveType}</div>
-          <div className="text-xs text-secondary/50">
-            {new Date(l.startDate).toLocaleDateString()} - {new Date(l.endDate).toLocaleDateString()}
-          </div>
+          <div className="text-xs text-secondary/50">{describeLeave(l)}</div>
         </div>
       ),
     },
@@ -153,8 +193,84 @@ export default function MyDashboard() {
               <option value="Sick">Sick Leave</option>
               <option value="Personal">Personal Leave</option>
               <option value="Earned">Earned Leave</option>
+              <option value="Permission">Permission</option>
             </select>
           </div>
+          <fieldset>
+            <legend className="block text-sm font-semibold text-secondary/80 mb-2">Duration</legend>
+            <div className="grid grid-cols-2 gap-2">
+              {([
+                ['days', 'Full day(s)'],
+                ['hours', 'Few hours'],
+              ] as const).map(([mode, label]) => (
+                <label
+                  key={mode}
+                  className={`flex items-center justify-center px-3 py-2 rounded-lg border text-sm font-medium cursor-pointer transition-colors focus-within:ring-1 focus-within:ring-primary ${
+                    form.mode === mode
+                      ? 'border-primary bg-primary/10 text-secondary'
+                      : 'border-borderBase text-secondary/60 hover:text-secondary'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="leaveMode"
+                    value={mode}
+                    checked={form.mode === mode}
+                    onChange={() => setForm({ ...form, mode })}
+                    className="sr-only"
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+          {form.mode === 'hours' ? (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-secondary/80 mb-1">Date</label>
+                <input
+                  required
+                  type="date"
+                  value={form.startDate}
+                  onChange={(e) => setForm({ ...form, startDate: e.target.value })}
+                  className="block w-full px-3 py-2 bg-background border border-borderBase rounded-lg text-secondary focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-base sm:text-sm transition-colors"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-secondary/80 mb-1">From</label>
+                  <input
+                    required
+                    type="time"
+                    value={form.startTime}
+                    onChange={(e) => setForm({ ...form, startTime: e.target.value })}
+                    className="block w-full px-3 py-2 bg-background border border-borderBase rounded-lg text-secondary focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-base sm:text-sm transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-secondary/80 mb-1">To</label>
+                  <input
+                    required
+                    type="time"
+                    value={form.endTime}
+                    onChange={(e) => setForm({ ...form, endTime: e.target.value })}
+                    className="block w-full px-3 py-2 bg-background border border-borderBase rounded-lg text-secondary focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-base sm:text-sm transition-colors"
+                  />
+                </div>
+              </div>
+              {form.startTime && form.endTime && (
+                <p className="text-sm" aria-live="polite">
+                  {hoursFormDuration(form.startTime, form.endTime) !== null ? (
+                    <span className="text-secondary/60">
+                      Total: {formatMinutes(hoursFormDuration(form.startTime, form.endTime))}
+                    </span>
+                  ) : (
+                    <span className="text-red-400">To time must be after From time.</span>
+                  )}
+                </p>
+              )}
+            </div>
+          ) : (
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-semibold text-secondary/80 mb-1">Start Date</label>
@@ -173,10 +289,12 @@ export default function MyDashboard() {
                 type="date"
                 value={form.endDate}
                 onChange={(e) => setForm({ ...form, endDate: e.target.value })}
+                min={form.startDate || undefined}
                 className="block w-full px-3 py-2 bg-background border border-borderBase rounded-lg text-secondary focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-base sm:text-sm transition-colors"
               />
             </div>
           </div>
+          )}
           <div>
             <label className="block text-sm font-semibold text-secondary/80 mb-1">Reason</label>
             <textarea

@@ -26,7 +26,7 @@ export class AttendanceController {
 
   @Post('break/start')
   startBreak(@Body() dto: StartBreakDto) {
-    return this.attendanceService.startBreak(dto.attendanceId);
+    return this.attendanceService.startBreak(dto.attendanceId, dto.type);
   }
 
   @Post('break/end')

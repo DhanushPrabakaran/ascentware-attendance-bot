@@ -20,24 +20,31 @@ export class StartBreakHandler extends BaseActionHandler {
     value: any,
     replyToId?: string,
   ): Promise<HandlerResult> {
-    await this.attendanceService.startBreak(value.attendanceId);
+    const breakType = value.breakType === 'lunch' ? 'lunch' : 'break';
+    await this.attendanceService.startBreak(value.attendanceId, breakType);
 
     const employeeName = context.activity.from.name || 'An employee';
     await this.botHelper.notifyGroupChat(
       context,
-      `☕ **${employeeName}** is taking a break.`,
+      breakType === 'lunch'
+        ? `🍱 **${employeeName}** is out for lunch.`
+        : `☕ **${employeeName}** is taking a break.`,
     );
 
     return this.respond(
       [
         this.cardActivity(
           CardBuilder.getReadOnlyReceiptCard(
-            'Break Started',
-            'Have a good rest!',
+            breakType === 'lunch' ? 'Lunch Started' : 'Break Started',
+            breakType === 'lunch' ? 'Enjoy your meal!' : 'Have a good rest!',
           ),
         ),
         this.cardActivity(
-          CardBuilder.getOnBreakCard(value.attendanceId, employeeName),
+          CardBuilder.getOnBreakCard(
+            value.attendanceId,
+            employeeName,
+            breakType,
+          ),
         ),
       ],
       {

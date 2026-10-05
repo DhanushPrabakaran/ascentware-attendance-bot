@@ -6,6 +6,7 @@ import { WorkPlanService } from '../../../work-plan/work-plan.service';
 import { AttendanceService } from '../../../attendance/attendance.service';
 import { CardBuilder } from '../../cards/CardBuilder';
 import { BotHelper } from '../../BotHelper';
+import { formatDuration } from '../../../common/time';
 
 @Injectable()
 export class SubmitReviewHandler extends BaseActionHandler {
@@ -42,16 +43,18 @@ export class SubmitReviewHandler extends BaseActionHandler {
     const result = await this.attendanceService.checkOut(value.attendanceId);
 
     const employeeName = context.activity.from.name || 'An employee';
+    const working = formatDuration(result.workingMinutes);
+    const breaks = formatDuration(result.breakMinutes);
     await this.botHelper.notifyGroupChat(
       context,
-      `👋 **${employeeName}** has checked out for the day.\n*Working Time: ${result.workingMinutes} mins | Break Time: ${result.breakMinutes} mins*`,
+      `👋 **${employeeName}** has checked out for the day.\n*Working Time: ${working} | Break Time: ${breaks}*`,
     );
 
     return this.respond([
       this.cardActivity(
         CardBuilder.getReadOnlyReceiptCard(
           'Checked Out',
-          `Working Time: ${result.workingMinutes} mins, Break Time: ${result.breakMinutes} mins`,
+          `Working Time: ${working}, Break Time: ${breaks}`,
         ),
       ),
       MessageFactory.text('You are checked out for the day. See you tomorrow!'),

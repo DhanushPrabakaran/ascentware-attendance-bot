@@ -6,6 +6,7 @@ import { BaseActionHandler } from './base-action.handler';
 import { AdminService } from '../../../admin/admin.service';
 import { CardBuilder } from '../../cards/CardBuilder';
 import { BotHelper } from '../../BotHelper';
+import { describeLeavePeriod } from '../../../common/time';
 
 @Injectable()
 export class SubmitLeaveHandler extends BaseActionHandler {
@@ -22,13 +23,23 @@ export class SubmitLeaveHandler extends BaseActionHandler {
     value: any,
     replyToId?: string,
   ): Promise<HandlerResult> {
-    const { leaveType, startDate, endDate, reason } = value;
+    const { leaveType, startDate, reason } = value;
+    const inHours = value.leaveMode === 'hours';
+    // Hourly leave is a single day; times are ignored for full-day leave even if filled.
+    const endDate = inHours ? startDate : value.endDate;
+    const startTime = inHours ? value.startTime : undefined;
+    const endTime = inHours ? value.endTime : undefined;
 
-    if (!leaveType || !startDate || !endDate || !reason) {
+    const missing = inHours
+      ? !leaveType || !startDate || !startTime || !endTime || !reason
+      : !leaveType || !startDate || !endDate || !reason;
+    if (missing) {
       return this.respond([
         this.cardActivity(
           CardBuilder.getLeaveRequestCard(
-            'Please fill all fields to submit a leave request.',
+            inHours
+              ? 'For leave in hours, fill in the date, From and To time, and a reason.'
+              : 'Please fill in the start and end date and a reason.',
             value,
           ),
         ),
@@ -43,6 +54,8 @@ export class SubmitLeaveHandler extends BaseActionHandler {
           startDate: new Date(startDate),
           endDate: new Date(endDate),
           reason,
+          startTime,
+          endTime,
         },
       );
 
@@ -67,8 +80,7 @@ export class SubmitLeaveHandler extends BaseActionHandler {
                     leave.id,
                     employeeName,
                     leaveType,
-                    startDate,
-                    endDate,
+                    describeLeavePeriod(leave),
                     reason,
                   ),
                 ],
@@ -91,7 +103,7 @@ export class SubmitLeaveHandler extends BaseActionHandler {
         this.cardActivity(
           CardBuilder.getReadOnlyReceiptCard(
             'Leave Submitted',
-            'Your leave application was submitted successfully. Your manager will be notified.',
+            `Your ${leaveType} leave for ${describeLeavePeriod(leave)} was submitted. Your manager will be notified.`,
           ),
         ),
       ]);

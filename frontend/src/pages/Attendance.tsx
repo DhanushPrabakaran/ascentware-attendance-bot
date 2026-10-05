@@ -5,6 +5,8 @@ import { api } from '../lib/api';
 import type { Attendance as AttendanceRecord } from '../lib/types';
 import { DataList, type DataListColumn } from '../components/ui/DataList';
 import { Pagination } from '../components/ui/Pagination';
+import { Badge } from '../components/ui/Badge';
+import { breakSummary, workedTime } from '../lib/format';
 
 const PAGE_SIZE = 25;
 
@@ -59,18 +61,28 @@ export default function Attendance() {
         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wider
           ${a.status === 'LATE' ? 'bg-orange-500/10 text-orange-400 border border-orange-500/20' :
             a.checkOut ? 'bg-white/10 text-secondary/50 border border-white/10' :
-            a.status === 'ON_BREAK' ? 'bg-yellow-400/10 text-yellow-400 border border-yellow-400/20' :
+            a.status === 'on_break' ? 'bg-yellow-400/10 text-yellow-400 border border-yellow-400/20' :
             'bg-primary/10 text-primary border border-primary/20'}`}>
-          {a.status === 'LATE' ? 'Late' : a.checkOut ? 'Left' : a.status === 'ON_BREAK' ? 'Break' : 'Active'}
+          {a.status === 'LATE' ? 'Late' : a.checkOut ? 'Left' : a.status === 'on_break' ? 'Break' : 'Active'}
         </span>
       ),
     },
     { header: 'Check In', render: (a) => formatTime(a.checkIn) },
-    { header: 'Check Out', render: (a) => formatTime(a.checkOut) },
     {
-      header: 'Hours',
-      render: (a) => (a.workingMinutes > 0 ? (a.workingMinutes / 60).toFixed(1) + 'h' : '--'),
+      header: 'Check Out',
+      render: (a) => (
+        <span>
+          {formatTime(a.checkOut)}
+          {a.autoCheckedOut && (
+            <span className="ml-2" title="Not checked out - closed automatically at midnight">
+              <Badge variant="warning">Auto</Badge>
+            </span>
+          )}
+        </span>
+      ),
     },
+    { header: 'Worked', render: (a) => workedTime(a) },
+    { header: 'Breaks', render: (a) => breakSummary(a) },
   ];
 
   return (

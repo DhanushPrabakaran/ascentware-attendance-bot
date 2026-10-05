@@ -4,6 +4,7 @@ import { CalendarOff, CheckCircle2, XCircle, User, Briefcase, Mail, Activity, Ar
 import { api } from '../lib/api';
 import type { Employee, Attendance, Leave } from '../lib/types';
 import { DailyTasksPanel } from '../components/DailyTasksPanel';
+import { breakSummary, describeLeave, workedTime } from '../lib/format';
 
 export default function EmployeeDetail() {
   const { id } = useParams();
@@ -157,6 +158,9 @@ export default function EmployeeDetail() {
                         <div className="text-xs font-medium text-secondary/50">
                           In: {new Date(att.checkIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           {att.checkOut && ` • Out: ${new Date(att.checkOut).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
+                          {att.autoCheckedOut && ' (auto)'}
+                          {att.workingMinutes > 0 && ` • ${workedTime(att)}`}
+                          {breakSummary(att) !== '--' && ` • ${breakSummary(att)}`}
                           {att.dailyTasks && att.dailyTasks.length > 0 && ` • ${att.dailyTasks.length} task${att.dailyTasks.length === 1 ? '' : 's'}`}
                         </div>
                       </div>
@@ -192,9 +196,7 @@ export default function EmployeeDetail() {
                   <div key={leave.id} className="p-4 bg-background rounded-lg border border-borderBase hover:border-borderBase/80 transition-colors">
                     <div className="flex justify-between items-start mb-3">
                       <span className="text-sm font-bold text-secondary">
-                        {leave.leaveType} · {new Date(leave.startDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                        {' - '}
-                        {new Date(leave.endDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                        {leave.leaveType} · {describeLeave(leave)}
                       </span>
                       <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border flex items-center gap-1.5
                         ${leave.status === 'APPROVED' ? 'bg-emerald-400/10 text-emerald-400 border-emerald-400/20' : 

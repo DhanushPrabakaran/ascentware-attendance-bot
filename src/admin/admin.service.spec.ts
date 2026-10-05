@@ -193,4 +193,76 @@ describe('AdminService', () => {
       ).resolves.toBe(true);
     });
   });
+
+  describe('createLeaveForEmployee (leave in hours)', () => {
+    const day = new Date('2026-10-06T00:00:00Z');
+    const base = {
+      leaveType: 'Permission',
+      startDate: day,
+      endDate: day,
+      reason: 'Doctor',
+    };
+
+    beforeEach(() => {
+      prisma.leave.create.mockImplementation((args: any) => ({
+        ...args.data,
+        id: 'l1',
+        employee: emp({ id: 'e1' }),
+      }));
+      prisma.employee.findUnique.mockResolvedValue(null);
+    });
+
+    it('stores times and duration, and pins endDate to startDate', async () => {
+      await service.createLeaveForEmployee('e1', {
+        ...base,
+        endDate: new Date('2026-10-09T00:00:00Z'),
+        startTime: '10:00',
+        endTime: '14:00',
+      });
+      expect(prisma.leave.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            startTime: '10:00',
+            endTime: '14:00',
+            durationMinutes: 240,
+            endDate: day,
+          }),
+        }),
+      );
+    });
+
+    it('full-day leave stores no times', async () => {
+      await service.createLeaveForEmployee('e1', base);
+      expect(prisma.leave.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            startTime: null,
+            endTime: null,
+            durationMinutes: null,
+          }),
+        }),
+      );
+    });
+
+    it.each([
+      [{ startTime: '10:00' }, 'both the From and To'],
+      [{ startTime: '14:00', endTime: '10:00' }, 'after From time'],
+      [{ startTime: '10:00', endTime: '10:00' }, 'after From time'],
+      [{ startTime: '9am', endTime: '10:00' }, 'HH:mm'],
+    ])('rejects %j', async (times, message) => {
+      await expect(
+        service.createLeaveForEmployee('e1', { ...base, ...times }),
+      ).rejects.toThrow(message);
+      expect(prisma.leave.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects a full-day range that ends before it starts', async () => {
+      await expect(
+        service.createLeaveForEmployee('e1', {
+          ...base,
+          endDate: new Date('2026-10-01T00:00:00Z'),
+        }),
+      ).rejects.toThrow('End date must be on or after start date');
+    });
+  });
 });

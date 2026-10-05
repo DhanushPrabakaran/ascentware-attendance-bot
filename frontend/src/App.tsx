@@ -4,7 +4,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Employees from './pages/Employees';
 import Shifts from './pages/Shifts';
-import Settings from './pages/Settings';
+import Groups from './pages/Groups';
 import Leaves from './pages/Leaves';
 import Attendance from './pages/Attendance';
 import EmployeeDetail from './pages/EmployeeDetail';
@@ -44,7 +44,9 @@ export default function App() {
             <Route path="shifts" element={<RequireRole roles={['ADMIN']}><Shifts /></RequireRole>} />
             <Route path="attendance" element={<RequireRole roles={['ADMIN']}><Attendance /></RequireRole>} />
             <Route path="leaves" element={<RequireRole roles={['ADMIN']}><Leaves /></RequireRole>} />
-            <Route path="settings" element={<RequireRole roles={['ADMIN']}><Settings /></RequireRole>} />
+            <Route path="groups" element={<RequireRole roles={['ADMIN']}><Groups /></RequireRole>} />
+            {/* The old Settings page only held the group IDs, now managed on Groups. */}
+            <Route path="settings" element={<Navigate to="/groups" replace />} />
           </Route>
         </Routes>
       </BrowserRouter>

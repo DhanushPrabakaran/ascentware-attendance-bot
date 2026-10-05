@@ -1,4 +1,27 @@
 import { CardFactory } from 'botbuilder';
+import { formatDuration } from '../../common/time';
+
+const PERMISSION_CHOICES = [
+  { title: 'None (0 hrs)', value: '0' },
+  { title: '1 Hour', value: '60' },
+  { title: '2 Hours', value: '120' },
+  { title: '3 Hours', value: '180' },
+  { title: '4 Hours (Half Day)', value: '240' },
+];
+
+/** Adds the pre-filled value as a choice when it isn't one of the presets (e.g. 1.5 hrs of
+ *  approved hourly leave) - otherwise the dropdown would silently show nothing selected. */
+function permissionChoices(current: string) {
+  if (PERMISSION_CHOICES.some((c) => c.value === current)) {
+    return PERMISSION_CHOICES;
+  }
+  const minutes = parseInt(current, 10);
+  if (!minutes) return PERMISSION_CHOICES;
+  return [
+    ...PERMISSION_CHOICES,
+    { title: `${formatDuration(minutes)} (approved)`, value: current },
+  ].sort((a, b) => parseInt(a.value, 10) - parseInt(b.value, 10));
+}
 
 export class PlanTasksCard {
   static getCard(
@@ -220,13 +243,7 @@ export class PlanTasksCard {
         id: 'permissionMinutes',
         style: 'compact',
         value: permVal,
-        choices: [
-          { title: 'None (0 hrs)', value: '0' },
-          { title: '1 Hour', value: '60' },
-          { title: '2 Hours', value: '120' },
-          { title: '3 Hours', value: '180' },
-          { title: '4 Hours (Half Day)', value: '240' },
-        ],
+        choices: permissionChoices(permVal),
       },
     );
 

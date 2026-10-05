@@ -19,7 +19,6 @@ import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { UpdateEmployeeDto } from './dto/update-employee.dto';
 import { SetPasswordDto } from './dto/set-password.dto';
 import { CreateShiftDto } from './dto/create-shift.dto';
-import { UpdateSettingsDto } from './dto/update-settings.dto';
 import { CreateLeaveDto } from './dto/create-leave.dto';
 import { UpdateLeaveStatusDto } from './dto/update-leave-status.dto';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
@@ -28,18 +27,6 @@ import { EmployeeScopedPaginationQueryDto } from '../common/dto/employee-scoped-
 @Controller('api/v1/admin')
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
-
-  @Roles(Role.ADMIN)
-  @Get('settings')
-  getSettings() {
-    return this.adminService.getSettings();
-  }
-
-  @Roles(Role.ADMIN)
-  @Put('settings')
-  updateSettings(@Body() dto: UpdateSettingsDto) {
-    return this.adminService.updateSettings(dto);
-  }
 
   @Get('employees')
   async getEmployees(
@@ -151,6 +138,8 @@ export class AdminController {
       startDate: new Date(dto.startDate),
       endDate: new Date(dto.endDate),
       reason: dto.reason,
+      startTime: dto.startTime,
+      endTime: dto.endTime,
     });
   }
 

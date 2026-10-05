@@ -6,6 +6,7 @@ import { HandlerResult } from '../interfaces/action-handler.interface';
 import { BaseActionHandler } from './base-action.handler';
 import { AdminService } from '../../../admin/admin.service';
 import { BotHelper } from '../../BotHelper';
+import { describeLeavePeriod } from '../../../common/time';
 
 @Injectable()
 export class ApproveLeaveHandler extends BaseActionHandler {
@@ -31,7 +32,9 @@ export class ApproveLeaveHandler extends BaseActionHandler {
     try {
       await this.botHelper.notifyGroupChat(
         context,
-        `✅ Leave Request Approved for **${leave.employee.name}**\n*Reason: ${leave.reason}*`,
+        `✅ Leave Request Approved for **${leave.employee.name}**\n${leave.leaveType}: ${describeLeavePeriod(leave)}\n*Reason: ${leave.reason}*`,
+        // The approver is the one in this turn - announce to the applicant's groups.
+        { id: leave.employeeId },
       );
       await this.botHelper.notifyLeaveDecision(
         context,

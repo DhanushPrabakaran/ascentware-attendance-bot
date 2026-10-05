@@ -39,6 +39,12 @@ export class CreateEmployeeDto {
   @IsUUID()
   shiftId?: string;
 
+  // Teams groups this employee's announcements go to; empty = the default groups.
+  @IsOptional()
+  @IsArray()
+  @IsUUID('all', { each: true })
+  groupIds?: string[];
+
   // v1: admin sets an initial password directly - no email/invite flow yet.
   @IsOptional()
   @IsString()

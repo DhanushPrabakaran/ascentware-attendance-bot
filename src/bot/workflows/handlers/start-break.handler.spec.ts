@@ -22,7 +22,7 @@ describe('StartBreakHandler', () => {
   it('starts the break, notifies the group chat, and returns two card activities', async () => {
     const result = await handler.execute(context, { attendanceId: 'att-1' });
 
-    expect(attendanceService.startBreak).toHaveBeenCalledWith('att-1');
+    expect(attendanceService.startBreak).toHaveBeenCalledWith('att-1', 'break');
     expect(botHelper.notifyGroupChat).toHaveBeenCalledWith(
       context,
       expect.stringContaining('Jane Doe'),
@@ -61,5 +61,24 @@ describe('StartBreakHandler', () => {
       handler.execute(context, { attendanceId: 'att-1' }),
     ).rejects.toThrow('Cannot start break from current status');
     expect(botHelper.notifyGroupChat).not.toHaveBeenCalled();
+  });
+
+  it('starts a lunch break with lunch wording when breakType is lunch', async () => {
+    const result = await handler.execute(context, {
+      attendanceId: 'att-1',
+      breakType: 'lunch',
+    });
+
+    expect(attendanceService.startBreak).toHaveBeenCalledWith('att-1', 'lunch');
+    expect(botHelper.notifyGroupChat).toHaveBeenCalledWith(
+      context,
+      expect.stringContaining('out for lunch'),
+    );
+    expect(JSON.stringify(result.activities)).toContain('Lunch Started');
+  });
+
+  it('treats an unknown breakType as a normal break', async () => {
+    await handler.execute(context, { attendanceId: 'att-1', breakType: 'nap' });
+    expect(attendanceService.startBreak).toHaveBeenCalledWith('att-1', 'break');
   });
 });

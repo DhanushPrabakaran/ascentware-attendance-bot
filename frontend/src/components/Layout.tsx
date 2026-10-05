@@ -3,7 +3,7 @@ import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import {
   Users,
   Clock,
-  Settings,
+  MessagesSquare,
   LogOut,
   LayoutDashboard,
   CalendarOff,
@@ -84,7 +84,7 @@ export default function Layout() {
       { name: 'Shifts', path: '/shifts', icon: <Clock size={20} /> },
       { name: 'Attendance', path: '/attendance', icon: <FileText size={20} /> },
       { name: 'Leaves', path: '/leaves', icon: <CalendarOff size={20} /> },
-      { name: 'Settings', path: '/settings', icon: <Settings size={20} /> },
+      { name: 'Groups', path: '/groups', icon: <MessagesSquare size={20} /> },
     );
   }
 

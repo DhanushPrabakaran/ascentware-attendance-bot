@@ -4,6 +4,10 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { calendarDateOf, nextMidnight, startOfDay } from '../common/time';
+
+export type BreakType = 'break' | 'lunch';
+const OPEN_STATUSES = ['checked_in', 'on_break'];
 
 @Injectable()
 export class AttendanceService {
@@ -20,9 +24,11 @@ export class AttendanceService {
     if (!employee)
       return { status: 'not_checked_in', employeeId: null, attendanceId: null };
 
-    // Get the most recent attendance for today (or just the most recent overall)
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // Close anything left open from a previous day before deciding today's state.
+    await this.autoCheckOutStale(new Date(), employee.id);
+
+    // "Today" in the company timezone, not the server's (UTC on Render).
+    const today = startOfDay(new Date());
 
     const attendance = await this.prisma.attendance.findFirst({
       where: {
@@ -58,6 +64,8 @@ export class AttendanceService {
         'No employee is linked to this Teams user yet. Contact an administrator.',
       );
     }
+
+    await this.autoCheckOutStale(new Date(), employee.id);
 
     return this.prisma.attendance.create({
       data: {
@@ -98,7 +106,90 @@ export class AttendanceService {
     });
   }
 
-  async startBreak(attendanceId: string) {
+  /**
+   * Closes every session still open from a previous day (in the company timezone) at
+   * the midnight that ended its day - so the stored check-out is the same whenever
+   * this runs: from the periodic AutoCheckoutService sweep, or lazily from
+   * getStatus/checkIn if the server was asleep at midnight (Render free tier). An open
+   * break is closed at that midnight too. Returns how many sessions were closed.
+   */
+  async autoCheckOutStale(now = new Date(), employeeId?: string) {
+    const stale = await this.prisma.attendance.findMany({
+      where: {
+        status: { in: OPEN_STATUSES },
+        checkIn: { lt: startOfDay(now) },
+        ...(employeeId ? { employeeId } : {}),
+      },
+      include: { breaks: true },
+    });
+
+    let closed = 0;
+    for (const attendance of stale) {
+      const cutoff = nextMidnight(attendance.checkIn);
+      let breakMinutes = 0;
+      const openBreaks = attendance.breaks.filter((b) => !b.breakEnd);
+      for (const b of attendance.breaks) {
+        breakMinutes += b.breakEnd
+          ? b.duration
+          : minutesBetween(b.breakStart, cutoff);
+      }
+      const workingMinutes = Math.max(
+        0,
+        minutesBetween(attendance.checkIn, cutoff) - breakMinutes,
+      );
+
+      const updated = await this.prisma.$transaction(async (tx) => {
+        // Guarded on status so a manual check-out racing this sweep wins cleanly.
+        const result = await tx.attendance.updateMany({
+          where: { id: attendance.id, status: { in: OPEN_STATUSES } },
+          data: {
+            checkOut: cutoff,
+            status: 'checked_out',
+            autoCheckedOut: true,
+            workingMinutes,
+            breakMinutes,
+          },
+        });
+        if (result.count === 0) return false;
+        for (const b of openBreaks) {
+          await tx.attendanceBreak.update({
+            where: { id: b.id },
+            data: {
+              breakEnd: cutoff,
+              duration: minutesBetween(b.breakStart, cutoff),
+            },
+          });
+        }
+        return true;
+      });
+      if (updated) closed++;
+    }
+    return closed;
+  }
+
+  /** Total approved hourly leave ("permission") the employee has today - pre-fills the
+   *  check-in plan card's permission question. */
+  async getApprovedPermissionMinutesToday(teamsUserId: string) {
+    const leaves = await this.prisma.leave.findMany({
+      where: {
+        employee: { teamsUserId },
+        status: 'APPROVED',
+        startDate: calendarDateOf(new Date()),
+        durationMinutes: { not: null },
+      },
+      select: { durationMinutes: true },
+    });
+    return leaves.reduce((sum, l) => sum + (l.durationMinutes || 0), 0);
+  }
+
+  async getOpenBreak(attendanceId: string) {
+    return this.prisma.attendanceBreak.findFirst({
+      where: { attendanceId, breakEnd: null },
+      orderBy: { breakStart: 'desc' },
+    });
+  }
+
+  async startBreak(attendanceId: string, type: BreakType = 'break') {
     const attendance = await this.prisma.attendance.findUnique({
       where: { id: attendanceId },
     });
@@ -115,6 +206,7 @@ export class AttendanceService {
       data: {
         attendanceId,
         breakStart: new Date(),
+        type,
       },
     });
   }
@@ -133,10 +225,7 @@ export class AttendanceService {
       throw new BadRequestException('Break already ended');
 
     const breakEnd = new Date();
-    const breakStart = new Date(breakRecord.breakStart);
-    const duration = Math.floor(
-      (breakEnd.getTime() - breakStart.getTime()) / 60000,
-    );
+    const duration = minutesBetween(breakRecord.breakStart, breakEnd);
 
     const updatedBreak = await this.prisma.attendanceBreak.update({
       where: { id: breakRecord.id },
@@ -153,4 +242,11 @@ export class AttendanceService {
 
     return updatedBreak;
   }
+}
+
+function minutesBetween(from: Date, to: Date) {
+  return Math.max(
+    0,
+    Math.floor((new Date(to).getTime() - new Date(from).getTime()) / 60000),
+  );
 }

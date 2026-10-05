@@ -46,6 +46,24 @@ model Employee {
   leaves        Leave[]
   notifications Notification[]
 
+  // Teams group chats this person's attendance/leave announcements go to. Empty means
+  // "use the default groups" (TeamsGroup.isDefault) - see GroupsService.getTargetsForEmployee.
+  groups TeamsGroup[] @relation("EmployeeGroups")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model TeamsGroup {
+  id             String    @id @default(uuid())
+  name           String
+  conversationId String    @unique // Teams conversation ID, from the bot's "/groupid" reply
+  isDefault      Boolean   @default(false) // receives announcements for employees with no groups assigned
+  isActive       Boolean   @default(true) // false while the bot is removed from the chat
+  lastTestedAt   DateTime?
+
+  employees Employee[] @relation("EmployeeGroups")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -62,14 +80,19 @@ model Shift {
 }
 
 model Leave {
-  id         String      @id @default(uuid())
-  employeeId String
-  employee   Employee    @relation(fields: [employeeId], references: [id], onDelete: Restrict)
-  leaveType  String
-  startDate  DateTime
-  endDate    DateTime
-  reason     String
-  status     LeaveStatus @default(PENDING)
+  id              String      @id @default(uuid())
+  employeeId      String
+  employee        Employee    @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  leaveType       String
+  startDate       DateTime
+  endDate         DateTime
+  reason          String
+  status          LeaveStatus @default(PENDING)
+  // Set together for an hourly leave ("permission") on startDate - wall-clock "HH:mm"
+  // in the company timezone. Null for full-day leave.
+  startTime       String?
+  endTime         String?
+  durationMinutes Int?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -77,7 +100,13 @@ model Leave {
 
 model Settings {
   id            String  @id @default("default")
+  // Legacy comma-separated group list, superseded by TeamsGroup (its IDs were copied
+  // there as default groups). No longer read - kept only so a rollback still works.
   commonGroupId String?
+  // Captured from incoming Teams activities so the web dashboard can send proactive
+  // messages (e.g. a group's test message) without an active bot turn.
+  botServiceUrl String?
+  botTenantId   String?
 }
 
 model Attendance {
@@ -91,6 +120,7 @@ model Attendance {
   breakMinutes      Int       @default(0)
   permissionMinutes Int       @default(0)
   status            String    @default("checked_in")
+  autoCheckedOut    Boolean   @default(false) // closed by the midnight sweep, not the employee
 
   breaks       AttendanceBreak[]
   dailyTasks   DailyTask[]
@@ -107,6 +137,7 @@ model AttendanceBreak {
   breakStart   DateTime
   breakEnd     DateTime?
   duration     Int        @default(0) // in minutes
+  type         String     @default("break") // "break" | "lunch"
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

@@ -28,6 +28,7 @@ describe('AttendanceService', () => {
         id: 'emp-1',
       } as any);
       prisma.attendance.create.mockResolvedValue({ id: 'att-1' } as any);
+      prisma.attendance.findMany.mockResolvedValue([]);
 
       const result = await service.checkIn('teams-1');
 
@@ -175,6 +176,102 @@ describe('AttendanceService', () => {
       expect(result).toEqual({ id: 'break-1', duration: 12 });
 
       jest.useRealTimers();
+    });
+  });
+
+  describe('autoCheckOutStale (IST midnight)', () => {
+    // 09:00 IST on 5 Oct = 03:30 UTC; that day ends at 18:30 UTC (00:00 IST, 6 Oct).
+    const checkIn = new Date('2026-10-05T03:30:00Z');
+    const midnight = new Date('2026-10-05T18:30:00Z');
+    const now = new Date('2026-10-06T04:00:00Z'); // 09:30 IST next day
+
+    beforeEach(() => {
+      // Run the transaction callback against the same mock client.
+      prisma.$transaction.mockImplementation((fn: any) => fn(prisma));
+      prisma.attendance.updateMany.mockResolvedValue({ count: 1 });
+    });
+
+    it('only looks at open sessions that started before today (IST)', async () => {
+      prisma.attendance.findMany.mockResolvedValue([]);
+      await service.autoCheckOutStale(now, 'emp-1');
+      expect(prisma.attendance.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            status: { in: ['checked_in', 'on_break'] },
+            checkIn: { lt: new Date('2026-10-05T18:30:00Z') },
+            employeeId: 'emp-1',
+          },
+        }),
+      );
+    });
+
+    it('checks out at midnight, closing an open lunch at midnight too', async () => {
+      prisma.attendance.findMany.mockResolvedValue([
+        {
+          id: 'att-1',
+          checkIn,
+          breaks: [
+            // a finished 20 min break
+            { id: 'b1', breakStart: checkIn, breakEnd: checkIn, duration: 20 },
+            // lunch started 23:00 IST and never ended -> 60 min until midnight
+            {
+              id: 'b2',
+              breakStart: new Date('2026-10-05T17:30:00Z'),
+              breakEnd: null,
+              duration: 0,
+            },
+          ],
+        },
+      ] as any);
+
+      const closed = await service.autoCheckOutStale(now);
+
+      expect(closed).toBe(1);
+      // 09:00 -> 00:00 = 900 min, minus 20 + 60 of breaks
+      expect(prisma.attendance.updateMany).toHaveBeenCalledWith({
+        where: { id: 'att-1', status: { in: ['checked_in', 'on_break'] } },
+        data: {
+          checkOut: midnight,
+          status: 'checked_out',
+          autoCheckedOut: true,
+          workingMinutes: 900 - 80,
+          breakMinutes: 80,
+        },
+      });
+      expect(prisma.attendanceBreak.update).toHaveBeenCalledTimes(1);
+      expect(prisma.attendanceBreak.update).toHaveBeenCalledWith({
+        where: { id: 'b2' },
+        data: { breakEnd: midnight, duration: 60 },
+      });
+    });
+
+    it('leaves the record alone if a manual check-out won the race', async () => {
+      prisma.attendance.findMany.mockResolvedValue([
+        {
+          id: 'att-1',
+          checkIn,
+          breaks: [
+            { id: 'b2', breakStart: checkIn, breakEnd: null, duration: 0 },
+          ],
+        },
+      ] as any);
+      prisma.attendance.updateMany.mockResolvedValue({ count: 0 });
+
+      expect(await service.autoCheckOutStale(now)).toBe(0);
+      expect(prisma.attendanceBreak.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('startBreak type', () => {
+    it('records a lunch break type', async () => {
+      prisma.attendance.findUnique.mockResolvedValue({
+        id: 'att-1',
+        status: 'checked_in',
+      } as any);
+      await service.startBreak('att-1', 'lunch');
+      expect(prisma.attendanceBreak.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ type: 'lunch' }),
+      });
     });
   });
 });

@@ -10,6 +10,17 @@ import * as bcrypt from 'bcrypt';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import { NotificationsService } from '../notifications/notifications.service';
 
+import { describeLeavePeriod, parseClockTime } from '../common/time';
+
+interface LeaveParams {
+  leaveType: string;
+  startDate: Date;
+  endDate: Date;
+  reason: string;
+  startTime?: string | null; // "HH:mm" - set both for leave in hours
+  endTime?: string | null;
+}
+
 const DEFAULT_PAGE = 1;
 const DEFAULT_PAGE_SIZE = 25;
 
@@ -32,46 +43,31 @@ export class AdminService {
     return settings;
   }
 
-  async updateSettings(data: { commonGroupId?: string }) {
-    // Settings always exists by this point - getSettings() bootstraps it on first read.
+  private lastBotEndpoint?: string;
+
+  /**
+   * Remembers the Teams service URL/tenant from the latest incoming bot activity, so the
+   * web dashboard can send proactive messages (a group's test message) outside a bot
+   * turn. Called on every turn - the in-memory check keeps it to one write per change.
+   */
+  async rememberBotEndpoint(serviceUrl?: string, tenantId?: string) {
+    if (!serviceUrl) return;
+    const key = `${serviceUrl}|${tenantId ?? ''}`;
+    if (key === this.lastBotEndpoint) return;
     await this.getSettings();
-    return this.prisma.settings.update({
+    await this.prisma.settings.update({
       where: { id: 'default' },
-      data,
+      data: { botServiceUrl: serviceUrl, botTenantId: tenantId ?? null },
     });
+    this.lastBotEndpoint = key;
   }
 
-  /** commonGroupId holds a comma-separated list, not a schema array - avoids a migration. */
-  private parseGroupChatIds(raw: string | null): string[] {
-    return (raw || '')
-      .split(',')
-      .map((id) => id.trim())
-      .filter(Boolean);
-  }
-
-  async getGroupChatIds(): Promise<string[]> {
+  async getBotEndpoint() {
     const settings = await this.getSettings();
-    return this.parseGroupChatIds(settings.commonGroupId);
-  }
-
-  /** Called from TeamsAttendanceBot's membersAdded handler when the bot itself joins a
-   *  conversation - group announcements should reach it without an admin manually
-   *  copying an ID out of a slash command reply. No-op if already registered. */
-  async registerGroupChat(conversationId: string) {
-    const ids = await this.getGroupChatIds();
-    if (ids.includes(conversationId)) return;
-    await this.updateSettings({
-      commonGroupId: [...ids, conversationId].join(','),
-    });
-  }
-
-  /** Mirror of registerGroupChat for the membersRemoved event, so a group the bot was
-   *  removed from stops being a (now-failing) send target automatically. */
-  async unregisterGroupChat(conversationId: string) {
-    const ids = await this.getGroupChatIds();
-    const next = ids.filter((id) => id !== conversationId);
-    if (next.length === ids.length) return;
-    await this.updateSettings({ commonGroupId: next.join(',') });
+    return {
+      serviceUrl: settings.botServiceUrl,
+      tenantId: settings.botTenantId,
+    };
   }
 
   /** Bcrypt hashes never leave the server via an API response - internal auth flows
@@ -92,7 +88,7 @@ export class AdminService {
     const [rawData, total] = await Promise.all([
       this.prisma.employee.findMany({
         where,
-        include: { shift: true },
+        include: { shift: true, groups: { select: { id: true, name: true } } },
         skip: (page - 1) * pageSize,
         take: pageSize,
         orderBy: { name: 'asc' },
@@ -103,7 +99,22 @@ export class AdminService {
     return { data, total, page, pageSize };
   }
 
+  /** Rejects unknown group IDs up front (e.g. a group deleted while the edit form was
+   *  open) - otherwise Prisma's connect/set fails as a 500. */
+  private async assertGroupsExist(groupIds?: string[]) {
+    if (!groupIds?.length) return;
+    const found = await this.prisma.teamsGroup.count({
+      where: { id: { in: groupIds } },
+    });
+    if (found !== new Set(groupIds).size) {
+      throw new BadRequestException(
+        'One or more selected groups no longer exist - reload and try again',
+      );
+    }
+  }
+
   async createEmployee(data: any) {
+    await this.assertGroupsExist(data.groupIds);
     const validData = {
       name: data.name,
       email: data.email,
@@ -115,22 +126,37 @@ export class AdminService {
       passwordHash: data.password
         ? await bcrypt.hash(data.password, 10)
         : undefined,
+      groups: data.groupIds
+        ? { connect: data.groupIds.map((id: string) => ({ id })) }
+        : undefined,
     };
     const employee = await this.prisma.employee.create({ data: validData });
     return this.omitPasswordHash(employee);
   }
 
   async updateEmployee(id: string, data: any) {
+    await this.assertGroupsExist(data.groupIds);
+    // A field the client didn't send is left as-is (undefined = no change in Prisma);
+    // only an explicit empty value clears it. The web edit form never sends
+    // teamsUserId, so nulling it on absence unlinked the employee from Teams on every save.
+    const orNull = (key: string) =>
+      data[key] !== undefined ? data[key] || null : undefined;
     const validData = {
       name: data.name,
       email: data.email,
       role: data.role,
-      teamsUserId: data.teamsUserId || null,
-      managerEmails: data.managerEmails || [],
-      hrEmail: data.hrEmail || null,
-      shiftId: data.shiftId || null,
+      teamsUserId: orNull('teamsUserId'),
+      managerEmails:
+        data.managerEmails !== undefined ? data.managerEmails || [] : undefined,
+      hrEmail: orNull('hrEmail'),
+      shiftId: orNull('shiftId'),
       passwordHash: data.password
         ? await bcrypt.hash(data.password, 10)
+        : undefined,
+      // Same rule for groups - an older client that omits groupIds must not
+      // silently wipe someone's group assignments.
+      groups: data.groupIds
+        ? { set: data.groupIds.map((id: string) => ({ id })) }
         : undefined,
     };
     const employee = await this.prisma.employee.update({
@@ -404,20 +430,56 @@ export class AdminService {
     });
   }
 
-  async createLeaveForEmployee(
-    employeeId: string,
-    params: {
-      leaveType: string;
-      startDate: Date;
-      endDate: Date;
-      reason: string;
-    },
-  ) {
-    if (params.endDate < params.startDate) {
-      throw new BadRequestException('endDate must be on or after startDate');
+  /**
+   * Full-day leave spans startDate..endDate. Hourly leave ("permission") is a single day
+   * with both times set (company wall clock, "HH:mm") - endDate is forced to startDate
+   * and the duration is stored so lists/notifications don't have to recompute it.
+   */
+  private normalizeLeavePeriod(params: LeaveParams) {
+    if (isNaN(params.startDate.getTime()) || isNaN(params.endDate.getTime())) {
+      throw new BadRequestException('Please choose valid dates');
     }
+    const hasStart = !!params.startTime?.trim();
+    const hasEnd = !!params.endTime?.trim();
+    if (!hasStart && !hasEnd) {
+      if (params.endDate < params.startDate) {
+        throw new BadRequestException(
+          'End date must be on or after start date',
+        );
+      }
+      return {
+        ...params,
+        startTime: null,
+        endTime: null,
+        durationMinutes: null,
+      };
+    }
+    if (!hasStart || !hasEnd) {
+      throw new BadRequestException(
+        'For leave in hours, fill in both the From and To time',
+      );
+    }
+    const from = parseClockTime(params.startTime!);
+    const to = parseClockTime(params.endTime!);
+    if (from === null || to === null) {
+      throw new BadRequestException('Times must be in HH:mm format');
+    }
+    if (to <= from) {
+      throw new BadRequestException('To time must be after From time');
+    }
+    return {
+      ...params,
+      startTime: params.startTime!.trim(),
+      endTime: params.endTime!.trim(),
+      endDate: params.startDate,
+      durationMinutes: to - from,
+    };
+  }
+
+  async createLeaveForEmployee(employeeId: string, params: LeaveParams) {
+    const data = this.normalizeLeavePeriod(params);
     const leave = await this.prisma.leave.create({
-      data: { employeeId, ...params },
+      data: { employeeId, ...data },
       include: { employee: true },
     });
 
@@ -433,22 +495,14 @@ export class AdminService {
       recipientIds,
       NotificationType.LEAVE_APPLIED,
       'New leave request',
-      `${leave.employee.name} applied for ${leave.leaveType} leave (${leave.startDate.toDateString()} - ${leave.endDate.toDateString()})`,
+      `${leave.employee.name} applied for ${leave.leaveType} leave (${describeLeavePeriod(leave)})`,
       `/leaves/${leave.id}`,
     );
 
     return leave;
   }
 
-  async createLeaveForTeamsUser(
-    teamsUserId: string,
-    params: {
-      leaveType: string;
-      startDate: Date;
-      endDate: Date;
-      reason: string;
-    },
-  ) {
+  async createLeaveForTeamsUser(teamsUserId: string, params: LeaveParams) {
     const emp = await this.prisma.employee.findUnique({
       where: { teamsUserId },
     });
@@ -474,7 +528,7 @@ export class AdminService {
         status === LeaveStatus.APPROVED
           ? 'Leave request approved'
           : 'Leave request rejected';
-      const message = `Your ${leave.leaveType} leave (${leave.startDate.toDateString()} - ${leave.endDate.toDateString()}) was ${status.toLowerCase()}.`;
+      const message = `Your ${leave.leaveType} leave (${describeLeavePeriod(leave)}) was ${status.toLowerCase()}.`;
 
       const recipientIds = [leave.employeeId];
       recipientIds.push(

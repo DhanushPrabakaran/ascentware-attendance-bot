@@ -87,6 +87,22 @@ export class CardBuilder {
           { title: 'Sick Leave', value: 'Sick' },
           { title: 'Personal Leave', value: 'Personal' },
           { title: 'Earned Leave', value: 'Earned' },
+          { title: 'Permission', value: 'Permission' },
+        ],
+      },
+      {
+        type: 'TextBlock',
+        text: 'Duration',
+        weight: 'Bolder',
+      },
+      {
+        type: 'Input.ChoiceSet',
+        id: 'leaveMode',
+        style: 'expanded',
+        value: previousValues?.leaveMode || 'days',
+        choices: [
+          { title: 'Full day(s)', value: 'days' },
+          { title: 'Few hours (fill From / To time below)', value: 'hours' },
         ],
       },
       {
@@ -108,11 +124,52 @@ export class CardBuilder {
             type: 'Column',
             width: 'stretch',
             items: [
-              { type: 'TextBlock', text: 'End Date', weight: 'Bolder' },
+              {
+                type: 'TextBlock',
+                text: 'End Date (full days)',
+                weight: 'Bolder',
+              },
               {
                 type: 'Input.Date',
                 id: 'endDate',
                 value: previousValues?.endDate,
+              },
+            ],
+          },
+        ],
+      },
+      {
+        type: 'ColumnSet',
+        columns: [
+          {
+            type: 'Column',
+            width: 'stretch',
+            items: [
+              {
+                type: 'TextBlock',
+                text: 'From Time (hours)',
+                weight: 'Bolder',
+              },
+              {
+                type: 'Input.Time',
+                id: 'startTime',
+                value: previousValues?.startTime,
+              },
+            ],
+          },
+          {
+            type: 'Column',
+            width: 'stretch',
+            items: [
+              {
+                type: 'TextBlock',
+                text: 'To Time (hours)',
+                weight: 'Bolder',
+              },
+              {
+                type: 'Input.Time',
+                id: 'endTime',
+                value: previousValues?.endTime,
               },
             ],
           },
@@ -172,13 +229,28 @@ export class CardBuilder {
           text: 'Status: In the Zone (Working)',
           isSubtle: true,
         },
+        // Break buttons get their own row: Teams caps a card's top-level actions at 5.
+        {
+          type: 'ActionSet',
+          actions: [
+            {
+              type: 'Action.Execute',
+              title: '☕ Start Break',
+              data: { action: 'startBreak', attendanceId: attendanceId },
+            },
+            {
+              type: 'Action.Execute',
+              title: '🍱 Lunch Break',
+              data: {
+                action: 'startBreak',
+                attendanceId: attendanceId,
+                breakType: 'lunch',
+              },
+            },
+          ],
+        },
       ],
       actions: [
-        {
-          type: 'Action.Execute',
-          title: 'Start Break',
-          data: { action: 'startBreak', attendanceId: attendanceId },
-        },
         {
           type: 'Action.Execute',
           title: 'Check Out',
@@ -204,7 +276,11 @@ export class CardBuilder {
     });
   }
 
-  static getOnBreakCard(attendanceId: string, employeeName: string) {
+  static getOnBreakCard(
+    attendanceId: string,
+    employeeName: string,
+    breakType: string = 'break',
+  ) {
     return CardFactory.adaptiveCard({
       $schema: 'http://adaptivecards.io/schemas/adaptive-card.json',
       type: 'AdaptiveCard',
@@ -212,7 +288,10 @@ export class CardBuilder {
       body: [
         {
           type: 'TextBlock',
-          text: `Vibing on break, ${employeeName} ☕`,
+          text:
+            breakType === 'lunch'
+              ? `Enjoy your lunch, ${employeeName} 🍱`
+              : `Vibing on break, ${employeeName} ☕`,
           weight: 'Bolder',
           size: 'Medium',
           color: 'Warning',
@@ -254,8 +333,7 @@ export class CardBuilder {
     leaveId: string,
     employeeName: string,
     leaveType: string,
-    startDate: string,
-    endDate: string,
+    period: string,
     reason: string,
   ) {
     return CardFactory.adaptiveCard({
@@ -275,7 +353,7 @@ export class CardBuilder {
           facts: [
             { title: 'Employee:', value: employeeName },
             { title: 'Type:', value: leaveType },
-            { title: 'Dates:', value: `${startDate} to ${endDate}` },
+            { title: 'When:', value: period },
             { title: 'Reason:', value: reason },
           ],
         },

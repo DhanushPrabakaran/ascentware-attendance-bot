@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Edit2, Trash2, Plus } from 'lucide-react';
 import { api, ApiError, type EmployeeInput } from '../lib/api';
-import type { Employee, Shift } from '../lib/types';
+import type { Employee, Shift, TeamsGroup } from '../lib/types';
 import { Modal } from '../components/ui/Modal';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
@@ -11,7 +11,7 @@ import { Pagination } from '../components/ui/Pagination';
 
 type FormState = Partial<EmployeeInput> & { id?: string };
 
-const emptyForm: FormState = { name: '', email: '', managerEmails: [], hrEmail: '' };
+const emptyForm: FormState = { name: '', email: '', managerEmails: [], hrEmail: '', groupIds: [] };
 const PAGE_SIZE = 25;
 
 export default function Employees() {
@@ -22,6 +22,7 @@ export default function Employees() {
   // modal need every employee, not just whichever page the table happens to be showing.
   const [allEmployees, setAllEmployees] = useState<Employee[]>([]);
   const [shifts, setShifts] = useState<Shift[]>([]);
+  const [groups, setGroups] = useState<TeamsGroup[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState<FormState>(emptyForm);
@@ -60,9 +61,18 @@ export default function Employees() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page]);
 
+  const fetchGroups = async () => {
+    try {
+      setGroups(await api.groups.list());
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Failed to load groups');
+    }
+  };
+
   useEffect(() => {
     fetchAllEmployeesForPickers();
     fetchShifts();
+    fetchGroups();
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -76,6 +86,7 @@ export default function Employees() {
         managerEmails: formData.managerEmails || [],
         hrEmail: formData.hrEmail || null,
         shiftId: formData.shiftId || null,
+        groupIds: formData.groupIds || [],
       };
       if (formData.password) payload.password = formData.password;
 
@@ -119,7 +130,7 @@ export default function Employees() {
   };
 
   const openEditModal = (emp: Employee) => {
-    setFormData({ ...emp, password: '' });
+    setFormData({ ...emp, password: '', groupIds: emp.groups?.map((g) => g.id) ?? [] });
     setIsEditing(true);
     setError(null);
     setIsModalOpen(true);
@@ -132,6 +143,14 @@ export default function Employees() {
       managerEmails: current.includes(email)
         ? current.filter((e) => e !== email)
         : [...current, email],
+    });
+  };
+
+  const handleGroupToggle = (id: string) => {
+    const current = formData.groupIds || [];
+    setFormData({
+      ...formData,
+      groupIds: current.includes(id) ? current.filter((g) => g !== id) : [...current, id],
     });
   };
 
@@ -162,6 +181,15 @@ export default function Employees() {
     {
       header: 'Managers',
       render: (emp) => emp.managerEmails?.length || 0,
+    },
+    {
+      header: 'Groups',
+      render: (emp) =>
+        emp.groups?.length ? (
+          emp.groups.map((g) => g.name).join(', ')
+        ) : (
+          <span className="text-secondary/40">Default</span>
+        ),
     },
     {
       header: 'HR',
@@ -310,6 +338,37 @@ export default function Employees() {
               {allEmployees.length === 0 && (
                 <span className="text-sm text-secondary/40 italic">
                   No employees available.
+                </span>
+              )}
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-secondary/80 mb-1">
+              Announcement Groups
+            </label>
+            <p className="text-xs text-secondary/50 mb-2">
+              Teams chats this employee's check-ins, breaks and approved leave are posted to.
+              None selected = the default groups.
+            </p>
+            <div className="space-y-2 bg-background border border-borderBase rounded-lg p-3 max-h-48 overflow-y-auto">
+              {groups.map((g) => (
+                <label key={g.id} className="flex items-center space-x-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.groupIds?.includes(g.id) || false}
+                    onChange={() => handleGroupToggle(g.id)}
+                    className="w-4 h-4 rounded border-borderBase bg-surfaceHover text-primary focus:ring-primary focus:ring-offset-neutral"
+                  />
+                  <span className="text-sm font-medium text-secondary">
+                    {g.name}
+                    {g.isDefault && <span className="text-secondary/40"> (default)</span>}
+                    {!g.isActive && <span className="text-red-400"> (bot removed)</span>}
+                  </span>
+                </label>
+              ))}
+              {groups.length === 0 && (
+                <span className="text-sm text-secondary/40 italic">
+                  No groups yet - add them on the Groups page.
                 </span>
               )}
             </div>

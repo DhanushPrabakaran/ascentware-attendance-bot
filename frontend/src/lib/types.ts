@@ -19,6 +19,16 @@ export interface Shift {
   endTime: string;
 }
 
+export interface TeamsGroup {
+  id: string;
+  name: string;
+  conversationId: string;
+  isDefault: boolean;
+  isActive: boolean;
+  lastTestedAt: string | null;
+  employeeCount?: number;
+}
+
 export interface Employee {
   id: string;
   name: string;
@@ -32,6 +42,7 @@ export interface Employee {
   isProvisional: boolean;
   shiftId: string | null;
   shift?: Shift | null;
+  groups?: Pick<TeamsGroup, 'id' | 'name'>[];
   createdAt: string;
   updatedAt: string;
 }
@@ -45,6 +56,10 @@ export interface Leave {
   endDate: string;
   reason: string;
   status: LeaveStatus;
+  /** Set (with endTime) for leave in hours on startDate - "HH:mm". */
+  startTime?: string | null;
+  endTime?: string | null;
+  durationMinutes?: number | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -54,6 +69,7 @@ export interface AttendanceBreak {
   breakStart: string;
   breakEnd: string | null;
   duration: number;
+  type?: 'break' | 'lunch';
 }
 
 export interface DailyTask {
@@ -77,6 +93,7 @@ export interface Attendance {
   breakMinutes: number;
   permissionMinutes: number;
   status: string;
+  autoCheckedOut?: boolean;
   breaks?: AttendanceBreak[];
   dailyTasks?: DailyTask[];
 }

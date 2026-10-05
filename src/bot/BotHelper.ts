@@ -3,11 +3,14 @@ import { TurnContext, CloudAdapter, Activity } from 'botbuilder';
 import { Employee, Leave, LeaveStatus } from '@prisma/client';
 import { Logger } from 'nestjs-pino';
 import { AdminService } from '../admin/admin.service';
+import { GroupsService } from '../groups/groups.service';
+import { describeLeavePeriod } from '../common/time';
 
 @Injectable()
 export class BotHelper {
   constructor(
     private readonly adminService: AdminService,
+    private readonly groupsService: GroupsService,
     private readonly logger: Logger,
   ) {}
 
@@ -123,7 +126,7 @@ export class BotHelper {
   ): Promise<void> {
     const decided = status === LeaveStatus.APPROVED ? 'approved' : 'rejected';
     const emoji = status === LeaveStatus.APPROVED ? '✅' : '❌';
-    const dateRange = `${leave.startDate.toDateString()} - ${leave.endDate.toDateString()}`;
+    const dateRange = describeLeavePeriod(leave);
 
     if (leave.employee.teamsUserId) {
       await this.sendDirectMessage(context, leave.employee.teamsUserId, {
@@ -138,21 +141,27 @@ export class BotHelper {
       if (hr?.teamsUserId) {
         await this.sendDirectMessage(context, hr.teamsUserId, {
           type: 'message',
-          text: `Leave ${decided} for **${leave.employee.name}**: ${leave.leaveType} (${leave.reason})`,
+          text: `Leave ${decided} for **${leave.employee.name}**: ${leave.leaveType}, ${dateRange} (${leave.reason})`,
         });
       }
     }
   }
 
   /**
-   * Settings.commonGroupId (via AdminService.getGroupChatIds) holds every conversation
-   * the bot has been auto-registered into via the membersAdded handler in
-   * TeamsAttendanceBot, plus any manually added there. Every one gets the announcement;
-   * one bad/stale ID doesn't block the rest. No hardcoded fallback group - if the bot
-   * hasn't been added anywhere yet, there's nowhere to send this.
+   * Posts an announcement about `employee` (by default the user who triggered this turn)
+   * to that employee's Teams groups - their assigned groups, or the default groups when
+   * none are assigned (GroupsService.getTargetsForEmployee). One bad/stale ID doesn't
+   * block the rest.
    */
-  async notifyGroupChat(context: TurnContext, message: string) {
-    const groupChatIds = await this.adminService.getGroupChatIds();
+  async notifyGroupChat(
+    context: TurnContext,
+    message: string | Partial<Activity>,
+    employee: { id: string } | { teamsUserId: string } = {
+      teamsUserId: context.activity.from?.id || '',
+    },
+  ) {
+    const groupChatIds =
+      await this.groupsService.getTargetsForEmployee(employee);
     if (groupChatIds.length === 0) return;
 
     const appId =

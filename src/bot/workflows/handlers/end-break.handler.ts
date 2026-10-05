@@ -5,6 +5,7 @@ import { BaseActionHandler } from './base-action.handler';
 import { AttendanceService } from '../../../attendance/attendance.service';
 import { CardBuilder } from '../../cards/CardBuilder';
 import { BotHelper } from '../../BotHelper';
+import { formatDuration } from '../../../common/time';
 
 @Injectable()
 export class EndBreakHandler extends BaseActionHandler {
@@ -25,17 +26,19 @@ export class EndBreakHandler extends BaseActionHandler {
     );
 
     const employeeName = context.activity.from.name || 'An employee';
+    const duration = formatDuration(breakRecord.duration);
+    const kind = breakRecord.type === 'lunch' ? 'lunch' : 'break';
     await this.botHelper.notifyGroupChat(
       context,
-      `💻 **${employeeName}** is back from break (${breakRecord.duration} min).`,
+      `💻 **${employeeName}** is back from ${kind} (${duration}).`,
     );
 
     return this.respond(
       [
         this.cardActivity(
           CardBuilder.getReadOnlyReceiptCard(
-            'Break Ended',
-            `You were on break for ${breakRecord.duration} min. Back to work!`,
+            kind === 'lunch' ? 'Lunch Ended' : 'Break Ended',
+            `You were on ${kind} for ${duration}. Back to work!`,
           ),
         ),
         this.cardActivity(

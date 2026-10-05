@@ -1,5 +1,6 @@
 import type { DailyTask } from '../lib/types';
 import { Badge, statusToVariant } from './ui/Badge';
+import { formatMinutes } from '../lib/format';
 
 const STATUS_LABELS: Record<string, string> = {
   not_started: 'Not Started',
@@ -33,8 +34,8 @@ export function DailyTasksPanel({ tasks }: { tasks?: DailyTask[] }) {
             </Badge>
           </div>
           <div className="mt-1 text-xs text-secondary/50">
-            Estimated: {task.estimatedMinutes} min
-            {task.timeTakenMinutes > 0 && ` · Taken: ${task.timeTakenMinutes} min`}
+            Estimated: {formatMinutes(task.estimatedMinutes)}
+            {task.timeTakenMinutes > 0 && ` · Taken: ${formatMinutes(task.timeTakenMinutes)}`}
             {task.priority && task.priority !== 'normal' && ` · Priority: ${task.priority}`}
           </div>
           {task.remarks && (

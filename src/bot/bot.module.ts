@@ -8,10 +8,12 @@ import { workflowHandlerProviders } from './workflows/handlers';
 import { AttendanceModule } from '../attendance/attendance.module';
 import { WorkPlanModule } from '../work-plan/work-plan.module';
 import { AdminModule } from '../admin/admin.module';
+import { GroupsModule } from '../groups/groups.module';
+import { GroupsController } from './groups.controller';
 
 @Module({
-  imports: [AttendanceModule, WorkPlanModule, AdminModule],
-  controllers: [BotController],
+  imports: [AttendanceModule, WorkPlanModule, AdminModule, GroupsModule],
+  controllers: [BotController, GroupsController],
   providers: [
     BotService,
     BotHelper,

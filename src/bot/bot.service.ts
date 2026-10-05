@@ -14,10 +14,14 @@ import { ActivityTrackerService } from './services/activity-tracker.service';
 import { AttendanceService } from '../attendance/attendance.service';
 import { AdminService } from '../admin/admin.service';
 import { BotHelper } from './BotHelper';
+import { GroupsService } from '../groups/groups.service';
+
+const DEFAULT_TEAMS_SERVICE_URL = 'https://smba.trafficmanager.net/teams/';
 
 @Injectable()
 export class BotService {
   private app: AgentApplication<TurnState>;
+  private adapter: CloudAdapter;
   private myBot: TeamsAttendanceBot;
   public handler: RequestHandler;
 
@@ -28,6 +32,7 @@ export class BotService {
     private adminService: AdminService,
     private logger: Logger,
     private botHelper: BotHelper,
+    private groupsService: GroupsService,
   ) {
     const storage = new MemoryStorage();
 
@@ -51,6 +56,7 @@ export class BotService {
     }
 
     const adapter = new CloudAdapter(authConfig);
+    this.adapter = adapter;
 
     this.app = new AgentApplication<TurnState>({ storage, adapter });
 
@@ -61,9 +67,51 @@ export class BotService {
       this.adminService,
       this.logger,
       this.botHelper,
+      this.groupsService,
     );
     this.myBot.registerHandlers(this.app);
 
     this.handler = createAgentRequestHandler(this.app, authConfig);
+  }
+
+  /**
+   * Proactively posts a message into a Teams conversation outside of a bot turn - used
+   * by the Groups screen's "send test message". Needs the Teams service URL, which
+   * AdminService.rememberBotEndpoint captures from incoming activities; before the bot
+   * has received any, the global Teams endpoint is used. Throws if Teams rejects the
+   * send (bot not in the chat, wrong ID, ...) so the caller can surface it.
+   */
+  async sendToConversation(conversationId: string, text: string) {
+    const appId =
+      process.env.CLIENT_ID ||
+      process.env.CLIENTID ||
+      process.env.MicrosoftAppId ||
+      '';
+    if (!appId) {
+      throw new Error('Bot credentials (CLIENT_ID) are not configured');
+    }
+    const endpoint = await this.adminService.getBotEndpoint();
+    const botAccount = { id: `28:${appId}` };
+    const reference: any = {
+      channelId: 'msteams',
+      serviceUrl: endpoint.serviceUrl || DEFAULT_TEAMS_SERVICE_URL,
+      // @microsoft/agents-activity reads 'agent' instead of 'bot' for continuation activities
+      bot: botAccount,
+      agent: botAccount,
+      conversation: {
+        id: conversationId,
+        isGroup: true,
+        conversationType: 'groupChat',
+        tenantId: endpoint.tenantId || undefined,
+      },
+    };
+
+    await this.adapter.continueConversation(
+      appId,
+      reference,
+      async (context) => {
+        await context.sendActivity(text);
+      },
+    );
   }
 }
