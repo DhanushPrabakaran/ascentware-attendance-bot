@@ -1,245 +1,157 @@
 import { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { CalendarOff, CheckCircle2, XCircle, User, Briefcase, Mail, Activity, ArrowLeft, Download, Pencil } from 'lucide-react';
+import { Link, useParams } from 'react-router-dom';
+import { ArrowLeft, Download, Mail } from 'lucide-react';
 import { api } from '../lib/api';
-import type { Employee, Attendance, Leave } from '../lib/types';
-import { DailyTasksPanel } from '../components/DailyTasksPanel';
-import { breakSummary, describeLeave, workedTime } from '../lib/format';
+import type { Leave, PersonDay } from '../lib/types';
+import { describeLeave, todayKey } from '../lib/format';
+import { useAuth } from '../lib/auth';
+import { Avatar, Card, EmptyState, ErrorBanner, Segmented } from '../components/ui/Page';
+import { Badge, statusToVariant } from '../components/ui/Badge';
+import { Button } from '../components/ui/Button';
+import { DayStatePill } from '../components/work/status';
+import { PersonHistory, usePersonReport, type Period } from '../components/work/PersonHistory';
 import { LeaveBalanceCard } from '../components/LeaveBalanceCard';
-import { CorrectCheckOutModal } from '../components/CorrectCheckOutModal';
+import { CorrectCheckOutModal, type CorrectableDay } from '../components/CorrectCheckOutModal';
 import { ExportTimesheetModal } from '../components/ExportTimesheetModal';
 
+type Tab = 'work' | 'leave';
+
+/** One person: who they are, how their days went, and their leave. */
 export default function EmployeeDetail() {
   const { id } = useParams();
-  const [employee, setEmployee] = useState<Employee | null>(null);
-  const [attendances, setAttendances] = useState<Attendance[]>([]);
+  const { user } = useAuth();
+  const [period, setPeriod] = useState<Period>('30');
+  const [tab, setTab] = useState<Tab>('work');
+  const { report, error, reload } = usePersonReport(id, period);
   const [leaves, setLeaves] = useState<Leave[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [expandedAttendanceId, setExpandedAttendanceId] = useState<string | null>(null);
-  const [correcting, setCorrecting] = useState<Attendance | null>(null);
+  const [correcting, setCorrecting] = useState<CorrectableDay | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
 
   useEffect(() => {
-    fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (!id) return;
+    api.leaves
+      .list({ employeeId: id, pageSize: 100 })
+      .then((r) => setLeaves(r.data))
+      .catch(() => setLeaves([]));
   }, [id]);
 
-  const fetchData = async () => {
-    if (!id) return;
-    setLoading(true);
-    try {
-      // Targeted, employeeId-scoped endpoints rather than fetching every employee's
-      // records and filtering client-side - the server already enforces (via
-      // canViewEmployeeData) whether the caller may see this specific employee, so a
-      // 403/404 here naturally falls through to the "not found" state below.
-      const [empData, attData, leaveData] = await Promise.all([
-        api.employees.get(id),
-        api.attendance.list({ employeeId: id, pageSize: 100 }),
-        api.leaves.list({ employeeId: id, pageSize: 100 }),
-      ]);
-
-      setEmployee(empData);
-      setAttendances(attData.data);
-      setLeaves(leaveData.data);
-    } catch (error) {
-      console.error('Failed to fetch data', error);
-      setEmployee(null);
-    }
-    setLoading(false);
-  };
-
-  if (loading) return <div className="p-8 text-secondary/60 animate-pulse">Loading profile...</div>;
-  if (!employee) {
+  if (error && !report) {
     return (
-      <div className="p-8 text-center bg-surface border border-borderBase rounded-xl mt-8">
-        <User size={48} className="mx-auto text-secondary/20 mb-4" />
-        <h2 className="text-xl font-bold text-secondary mb-2">Employee Not Found</h2>
-        <Link to="/employees" className="text-primary hover:underline text-sm font-medium">Return to Directory</Link>
+      <div className="space-y-4">
+        <ErrorBanner>{error}</ErrorBanner>
+        <Link to="/people" className="text-sm font-medium text-primary hover:underline">Back to people</Link>
       </div>
     );
   }
 
-  const sortedAttendances = [...attendances].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  const sortedLeaves = [...leaves].sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime());
+  const employee = report?.employee;
+  const today = report?.days.find((d) => d.date === todayKey())?.day;
+  const isSelf = id === user?.id;
 
-  // Determine current real-time status
-  const todayStr = new Date().toISOString().split('T')[0];
-  const todaysAtt = sortedAttendances.find(a => a.date.startsWith(todayStr));
-  const todaysLeave = sortedLeaves.find(l => l.startDate.startsWith(todayStr) && l.status === 'APPROVED');
-  
-  let currentStatus = "Absent";
-  let statusColor = "text-secondary/40";
-  let statusBg = "bg-surfaceHover border-borderBase";
-
-  if (todaysLeave) {
-    currentStatus = "On Leave Today";
-    statusColor = "text-emerald-400";
-    statusBg = "bg-emerald-400/10 border-emerald-400/20";
-  } else if (todaysAtt) {
-    if (todaysAtt.checkOut) {
-      currentStatus = "Checked Out";
-      statusColor = "text-secondary/60";
-      statusBg = "bg-white/10 border-white/10";
-    } else if (todaysAtt.status === 'ON_BREAK') {
-      currentStatus = "On Break";
-      statusColor = "text-yellow-400";
-      statusBg = "bg-yellow-400/10 border-yellow-400/20";
-    } else {
-      currentStatus = "Active Now";
-      statusColor = "text-primary";
-      statusBg = "bg-primary/10 border-primary/20 shadow-[0_0_15px_rgba(0,166,239,0.15)]";
-    }
-  }
+  const dayActions = (_date: string, day: PersonDay) => {
+    if (!day.checkIn || !day.checkOut || day.attendanceIds.length !== 1) return null;
+    if (isSelf && !day.autoCheckedOut && user?.role !== 'ADMIN') return null;
+    return (
+      <Button
+        variant="secondary"
+        className="px-3 py-1.5 text-xs"
+        onClick={() =>
+          setCorrecting({
+            id: day.attendanceIds[0],
+            checkIn: day.checkIn!,
+            checkOut: day.checkOut,
+            autoCheckedOut: day.autoCheckedOut,
+            employee: employee ? { name: employee.name } : undefined,
+          })
+        }
+      >
+        Correct check-out
+      </Button>
+    );
+  };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
-      <Link to="/employees" className="inline-flex items-center text-sm font-semibold text-secondary/60 hover:text-primary transition-colors">
-        <ArrowLeft size={16} className="mr-2" /> Back to Directory
+    <div className="space-y-6">
+      <Link to="/people" className="inline-flex items-center gap-1.5 text-sm font-medium text-tertiary hover:text-primary">
+        <ArrowLeft size={14} /> People
       </Link>
 
-      {/* Profile Header Card */}
-      <div className="bg-surface border border-borderBase rounded-2xl overflow-hidden shadow-saas">
-        <div className="bg-background/50 border-b border-borderBase p-8 flex flex-col md:flex-row items-center md:items-start gap-6">
-          <div className="w-24 h-24 rounded-2xl bg-surface border-2 border-borderBase flex items-center justify-center text-secondary font-bold text-4xl shadow-inner shrink-0">
-            {employee.name.charAt(0)}
-          </div>
-          <div className="flex-1 text-center md:text-left">
-            <h1 className="text-3xl font-bold tracking-tight text-secondary">{employee.name}</h1>
-            <div className="mt-2 flex flex-wrap items-center justify-center md:justify-start gap-4 text-sm font-medium text-secondary/60">
-              <span className="flex items-center"><Mail size={16} className="mr-1.5 opacity-70" /> {employee.email}</span>
-              <span className="flex items-center"><Briefcase size={16} className="mr-1.5 opacity-70" /> {employee.role || 'Staff'}</span>
+      {employee && (
+        <Card bodyClassName="p-5 sm:p-6">
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
+            <Avatar name={employee.name} size="lg" />
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="text-xl font-bold tracking-tight text-secondary">{employee.name}</h2>
+                <DayStatePill state={today?.state ?? 'absent'} label={today ? undefined : 'Not checked in today'} />
+              </div>
+              <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-tertiary">
+                <span className="inline-flex items-center gap-1.5"><Mail size={13} />{employee.email}</span>
+                <span>{employee.role === 'EMPLOYEE' ? 'Employee' : employee.role === 'HR' ? 'HR' : 'Admin'}</span>
+                {employee.shift && <span>{employee.shift.name} shift · {employee.shift.startTime}–{employee.shift.endTime}</span>}
+              </div>
+              <div className="mt-2 flex flex-wrap gap-1.5 text-xs">
+                {employee.managerEmails.length > 0 && (
+                  <span className="rounded-md bg-surfaceHover px-2 py-0.5 text-secondary/80">Reports to {employee.managerEmails.join(', ')}</span>
+                )}
+                {employee.groups?.map((g) => (
+                  <span key={g.id} className="rounded-md bg-sky-50 px-2 py-0.5 text-sky-700">{g.name}</span>
+                ))}
+                <span className={`rounded-md px-2 py-0.5 ${employee.teamsUserId ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-800'}`}>
+                  {employee.teamsUserId ? 'Linked to Teams' : 'Not linked to Teams'}
+                </span>
+              </div>
             </div>
           </div>
-          <div className="shrink-0 flex flex-col items-center md:items-end gap-3">
-            <div className={`px-4 py-1.5 rounded-lg border text-sm font-bold uppercase tracking-wider ${statusBg} ${statusColor}`}>
-              {currentStatus}
-            </div>
-            <span className={`text-xs font-semibold px-2.5 py-1 rounded-md ${employee.teamsUserId ? 'bg-primary/10 text-primary' : 'bg-surfaceHover text-secondary/40'}`}>
-              {employee.teamsUserId ? 'Teams Connected' : 'No Teams Link'}
-            </span>
-          </div>
-        </div>
-        
-        {/* Key Metrics Strip */}
-        <div className="grid grid-cols-3 divide-x divide-borderBase bg-surface">
-          <div className="p-6 text-center">
-            <div className="text-3xl font-bold text-secondary">{attendances.length}</div>
-            <div className="text-xs font-semibold text-secondary/50 uppercase tracking-wider mt-1">Total Shifts</div>
-          </div>
-          <div className="p-6 text-center">
-            <div className="text-3xl font-bold text-secondary">{leaves.filter(l => l.status === 'APPROVED').length}</div>
-            <div className="text-xs font-semibold text-secondary/50 uppercase tracking-wider mt-1">Approved Leaves</div>
-          </div>
-          <div className="p-6 text-center">
-            <div className="text-3xl font-bold text-secondary">{attendances.filter(a => a.status === 'LATE').length || 0}</div>
-            <div className="text-xs font-semibold text-secondary/50 uppercase tracking-wider mt-1">Late Arrivals</div>
-          </div>
-        </div>
-      </div>
+        </Card>
+      )}
 
-      {/* Details Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Attendance Log */}
-        <div className="bg-surface border border-borderBase rounded-xl shadow-saas flex flex-col">
-          <div className="p-5 border-b border-borderBase flex items-center justify-between bg-background/30">
-            <h2 className="text-base font-semibold text-secondary flex items-center">
-              <Activity size={18} className="mr-2 text-primary" /> Attendance Log
-            </h2>
-            <button
-              onClick={() => setExportOpen(true)}
-              className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-primaryHover"
-            >
-              <Download size={14} /> Export
-            </button>
-          </div>
-          <div className="p-5 flex-1 overflow-y-auto max-h-[400px]">
-            {sortedAttendances.length === 0 ? (
-              <div className="text-center py-8 text-secondary/40 text-sm font-medium">No attendance records found.</div>
-            ) : (
-              <div className="space-y-3">
-                {sortedAttendances.map(att => (
-                  <div key={att.id} className="bg-background rounded-lg border border-borderBase hover:border-borderBase/80 transition-colors overflow-hidden">
-                    <button
-                      type="button"
-                      onClick={() => setExpandedAttendanceId(expandedAttendanceId === att.id ? null : att.id)}
-                      className="w-full flex justify-between items-center p-4 text-left"
-                    >
-                      <div>
-                        <div className="text-sm font-bold text-secondary mb-1">{new Date(att.date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</div>
-                        <div className="text-xs font-medium text-secondary/50">
-                          In: {new Date(att.checkIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          {att.checkOut && ` • Out: ${new Date(att.checkOut).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
-                          {att.autoCheckedOut && ' (auto)'}
-                          {att.workingMinutes > 0 && ` • ${workedTime(att)}`}
-                          {breakSummary(att) !== '--' && ` • ${breakSummary(att)}`}
-                          {att.dailyTasks && att.dailyTasks.length > 0 && ` • ${att.dailyTasks.length} task${att.dailyTasks.length === 1 ? '' : 's'}`}
-                        </div>
-                      </div>
-                      <span className="px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-surfaceHover text-secondary/70 border border-borderBase shrink-0">
-                        {att.status.replace('_', ' ')}
-                      </span>
-                    </button>
-                    {expandedAttendanceId === att.id && (
-                      <div className="border-t border-borderBase">
-                        {att.checkOut && (
-                          <div className="px-4 pt-3">
-                            <button
-                              onClick={() => setCorrecting({ ...att, employee })}
-                              className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-primaryHover"
-                            >
-                              <Pencil size={12} /> Correct check-out time
-                            </button>
-                          </div>
-                        )}
-                        <DailyTasksPanel tasks={att.dailyTasks} />
-                      </div>
-                    )}
+      <Segmented
+        label="Section"
+        value={tab}
+        onChange={setTab}
+        options={[
+          { value: 'work', label: 'Work' },
+          { value: 'leave', label: `Leave (${leaves.length})` },
+        ]}
+      />
+
+      {tab === 'work' ? (
+        <PersonHistory
+          report={report}
+          error={error}
+          period={period}
+          onPeriodChange={setPeriod}
+          headerActions={
+            <Button variant="secondary" onClick={() => setExportOpen(true)}>
+              <Download size={14} /> Timesheet
+            </Button>
+          }
+          dayActions={dayActions}
+        />
+      ) : (
+        <div className="space-y-5">
+          {id && <LeaveBalanceCard employeeId={id} refreshKey={leaves} />}
+          {leaves.length === 0 ? (
+            <EmptyState title="No leave requests" />
+          ) : (
+            <Card bodyClassName="divide-y divide-borderBase">
+              {leaves.map((l) => (
+                <div key={l.id} className="flex flex-col gap-1 px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-secondary">{l.leaveType} · {describeLeave(l)}</p>
+                    <p className="text-xs text-tertiary">{l.reason}</p>
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
+                  <Badge variant={statusToVariant(l.status)}>{l.status.toLowerCase()}</Badge>
+                </div>
+              ))}
+            </Card>
+          )}
         </div>
+      )}
 
-        {/* Leave History */}
-        <div className="bg-surface border border-borderBase rounded-xl shadow-saas flex flex-col">
-          <div className="p-5 border-b border-borderBase flex items-center justify-between bg-background/30">
-            <h2 className="text-base font-semibold text-secondary flex items-center">
-              <CalendarOff size={18} className="mr-2 text-emerald-400" /> Leave History
-            </h2>
-          </div>
-          <div className="p-5 flex-1 overflow-y-auto max-h-[400px]">
-            {sortedLeaves.length === 0 ? (
-              <div className="text-center py-8 text-secondary/40 text-sm font-medium">No leave requests found.</div>
-            ) : (
-              <div className="space-y-3">
-                {sortedLeaves.map(leave => (
-                  <div key={leave.id} className="p-4 bg-background rounded-lg border border-borderBase hover:border-borderBase/80 transition-colors">
-                    <div className="flex justify-between items-start mb-3">
-                      <span className="text-sm font-bold text-secondary">
-                        {leave.leaveType} · {describeLeave(leave)}
-                      </span>
-                      <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border flex items-center gap-1.5
-                        ${leave.status === 'APPROVED' ? 'bg-emerald-400/10 text-emerald-400 border-emerald-400/20' : 
-                          leave.status === 'REJECTED' ? 'bg-red-500/10 text-red-400 border-red-500/20' : 
-                          'bg-surfaceHover text-secondary/60 border-borderBase'}`}>
-                        {leave.status === 'APPROVED' ? <CheckCircle2 size={12}/> : leave.status === 'REJECTED' ? <XCircle size={12}/> : null}
-                        {leave.status}
-                      </span>
-                    </div>
-                    <p className="text-sm text-secondary/70 font-medium leading-relaxed bg-surface p-3 rounded border border-borderBase/50">{leave.reason}</p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <LeaveBalanceCard employeeId={employee.id} refreshKey={leaves} />
-
-      <CorrectCheckOutModal attendance={correcting} onClose={() => setCorrecting(null)} onSaved={fetchData} />
-      <ExportTimesheetModal open={exportOpen} onClose={() => setExportOpen(false)} employeeId={employee.id} />
+      <CorrectCheckOutModal attendance={correcting} onClose={() => setCorrecting(null)} onSaved={reload} />
+      {id && <ExportTimesheetModal open={exportOpen} onClose={() => setExportOpen(false)} employeeId={id} />}
     </div>
   );
 }

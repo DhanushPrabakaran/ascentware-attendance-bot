@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 export function Modal({
   open,
@@ -17,15 +17,18 @@ export function Modal({
 
   return (
     <div
-      className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+      className="fixed inset-0 bg-secondary/30 backdrop-blur-sm flex items-center justify-center p-4 z-50"
       onClick={onClose}
     >
       <div
-        className={`bg-surfaceHover rounded-xl shadow-2xl border border-borderBase w-full ${maxWidth} max-h-[90vh] overflow-y-auto`}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        className={`bg-surface rounded-xl shadow-saas-lg border border-borderBase w-full ${maxWidth} max-h-[90vh] overflow-y-auto`}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="p-6 border-b border-borderBase">
-          <h3 className="text-xl font-bold text-secondary tracking-tight">
+        <div className="px-6 py-4 border-b border-borderBase">
+          <h3 className="text-base font-semibold text-secondary">
             {title}
           </h3>
         </div>

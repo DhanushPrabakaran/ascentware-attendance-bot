@@ -221,8 +221,8 @@ export default function Employees() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
         <div>
-          <h2 className="text-3xl font-bold text-secondary tracking-tight">Employees</h2>
-          <p className="mt-2 text-sm text-secondary/60 font-medium">
+          <h2 className="text-2xl font-bold text-secondary tracking-tight">Employees</h2>
+          <p className="mt-1 text-sm text-tertiary">
             Manage your workforce, managers, and HR assignments.
           </p>
         </div>

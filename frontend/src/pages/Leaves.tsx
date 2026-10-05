@@ -1,39 +1,49 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Check, X } from 'lucide-react';
 import { api, ApiError } from '../lib/api';
-import type { Leave } from '../lib/types';
+import type { Leave, LeaveStatus } from '../lib/types';
 import { Badge, statusToVariant } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Pagination } from '../components/ui/Pagination';
-import { describeLeave } from '../lib/format';
+import { Avatar, EmptyState, ErrorBanner, Loading, PageHeader, Segmented } from '../components/ui/Page';
+import { describeLeave, formatMinutes } from '../lib/format';
 import { useAuth } from '../lib/auth';
 import { LeavePolicies } from '../components/LeavePolicies';
 
 const PAGE_SIZE = 25;
+type Tab = 'PENDING' | 'APPROVED' | 'ALL';
 
+/** Leave requests from everyone you can see; approve or reject the ones you manage. */
 export default function Leaves() {
   const { user } = useAuth();
-  const [leaves, setLeaves] = useState<Leave[]>([]);
+  const [tab, setTab] = useState<Tab>('PENDING');
+  const [leaves, setLeaves] = useState<Leave[] | null>(null);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [error, setError] = useState<string | null>(null);
   const [actingOn, setActingOn] = useState<string | null>(null);
+  // HR sees leave but never decides it; managers decide for their reports, admins for all.
+  const canDecide = user?.role === 'ADMIN' || !!user?.isManager;
 
-  const fetchLeaves = async () => {
+  const fetchLeaves = useCallback(async () => {
     try {
-      const result = await api.leaves.list({ page, pageSize: PAGE_SIZE });
+      const result = await api.leaves.list({
+        page,
+        pageSize: PAGE_SIZE,
+        ...(tab === 'ALL' ? {} : { status: tab as LeaveStatus }),
+      });
       setLeaves(result.data);
       setTotal(result.total);
+      setError(null);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to load leaves');
     }
-  };
+  }, [page, tab]);
 
   useEffect(() => {
     fetchLeaves();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page]);
+  }, [fetchLeaves]);
 
   const decide = async (id: string, status: 'APPROVED' | 'REJECTED') => {
     setActingOn(id);
@@ -49,81 +59,64 @@ export default function Leaves() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-3xl font-bold text-secondary tracking-tight">Leave Requests</h2>
-        <p className="mt-2 text-sm text-secondary/60 font-medium">
-          Review and act on leave applications you're authorized to manage.
-        </p>
-      </div>
+      <PageHeader
+        title="Leave requests"
+        description={canDecide ? 'Approve or reject leave for the people you manage.' : 'Leave requests for the people assigned to you.'}
+      />
 
-      {error && (
-        <div className="bg-red-500/10 text-red-400 p-4 rounded-lg border border-red-500/20">
-          {error}
-        </div>
-      )}
+      <Segmented
+        label="Status"
+        value={tab}
+        onChange={(t) => {
+          setTab(t);
+          setPage(1);
+        }}
+        options={[
+          { value: 'PENDING', label: 'Pending' },
+          { value: 'APPROVED', label: 'Approved' },
+          { value: 'ALL', label: 'All' },
+        ]}
+      />
 
-      <div className="bg-surface border border-borderBase rounded-xl overflow-hidden shadow-saas">
-        <ul className="divide-y divide-borderBase">
+      {error && <ErrorBanner>{error}</ErrorBanner>}
+      {!leaves ? (
+        !error && <Loading />
+      ) : leaves.length === 0 ? (
+        <EmptyState title={tab === 'PENDING' ? 'Nothing waiting for a decision' : 'No leave requests'} />
+      ) : (
+        <ul className="divide-y divide-borderBase overflow-hidden rounded-xl border border-borderBase bg-surface shadow-saas">
           {leaves.map((l) => (
-            <li key={l.id} className="p-6 hover:bg-surfaceHover/50 transition-colors">
-              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-6">
-                <div className="flex items-start flex-1">
-                  <div className="w-10 h-10 rounded bg-surfaceHover text-primary flex items-center justify-center font-bold text-sm mr-4 mt-1 shrink-0">
-                    {l.employee?.name.charAt(0)}
+            <li key={l.id} className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-start">
+              <div className="flex min-w-0 flex-1 gap-3">
+                {l.employee && <Avatar name={l.employee.name} />}
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Link to={`/employees/${l.employeeId}`} className="text-sm font-semibold text-secondary hover:text-primary">
+                      {l.employee?.name}
+                    </Link>
+                    <Badge variant={statusToVariant(l.status)}>{l.status.toLowerCase()}</Badge>
                   </div>
-                  <div className="flex-1">
-                    <div className="mb-1">
-                      <Link
-                        to={`/employees/${l.employeeId}`}
-                        className="text-sm font-semibold text-primary hover:underline"
-                      >
-                        {l.employee?.name}
-                      </Link>
-                      <span className="text-secondary/50 font-normal text-xs ml-2">
-                        ({l.employee?.email})
-                      </span>
-                    </div>
-                    <p className="text-xs font-semibold text-secondary/60 uppercase tracking-wider">
-                      {l.leaveType} · {describeLeave(l)}
-                    </p>
-                    <p className="text-secondary/80 mt-2 text-sm bg-background p-4 rounded-lg border border-borderBase shadow-inner whitespace-pre-wrap">
-                      {l.reason}
-                    </p>
-                  </div>
-                </div>
-                <div className="sm:text-right shrink-0 flex flex-col items-start sm:items-end gap-3">
-                  <Badge variant={statusToVariant(l.status)}>{l.status}</Badge>
-                  {l.status === 'PENDING' && (
-                    <div className="flex gap-2">
-                      <Button
-                        variant="primary"
-                        className="px-3 py-1.5 text-xs"
-                        disabled={actingOn === l.id}
-                        onClick={() => decide(l.id, 'APPROVED')}
-                      >
-                        <Check size={14} /> Approve
-                      </Button>
-                      <Button
-                        variant="danger"
-                        className="px-3 py-1.5 text-xs"
-                        disabled={actingOn === l.id}
-                        onClick={() => decide(l.id, 'REJECTED')}
-                      >
-                        <X size={14} /> Reject
-                      </Button>
-                    </div>
-                  )}
+                  <p className="mt-0.5 text-sm text-secondary/80">
+                    <span className="font-medium">{l.leaveType}</span> · {describeLeave(l)}
+                    {l.durationMinutes ? ` (${formatMinutes(l.durationMinutes)})` : ''}
+                  </p>
+                  <p className="mt-1 whitespace-pre-wrap text-sm text-tertiary">{l.reason}</p>
                 </div>
               </div>
+              {canDecide && l.status === 'PENDING' && (
+                <div className="flex shrink-0 gap-2 sm:pt-1">
+                  <Button className="px-3 py-1.5 text-xs" disabled={actingOn === l.id} onClick={() => decide(l.id, 'APPROVED')}>
+                    <Check size={14} /> Approve
+                  </Button>
+                  <Button variant="secondary" className="px-3 py-1.5 text-xs" disabled={actingOn === l.id} onClick={() => decide(l.id, 'REJECTED')}>
+                    <X size={14} /> Reject
+                  </Button>
+                </div>
+              )}
             </li>
           ))}
-          {leaves.length === 0 && (
-            <li className="p-12 text-center text-secondary/40 text-sm font-medium">
-              No leaves have been requested yet.
-            </li>
-          )}
         </ul>
-      </div>
+      )}
       <Pagination page={page} pageSize={PAGE_SIZE} total={total} onPageChange={setPage} />
 
       {user?.role === 'ADMIN' && <LeavePolicies />}

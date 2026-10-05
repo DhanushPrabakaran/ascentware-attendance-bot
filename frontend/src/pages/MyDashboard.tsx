@@ -1,19 +1,22 @@
 import { useEffect, useState } from 'react';
 import { Download, Plus } from 'lucide-react';
 import { api, ApiError } from '../lib/api';
-import type { Attendance, Leave } from '../lib/types';
+import type { Leave, PersonDay } from '../lib/types';
 import { useAuth } from '../lib/auth';
-import { DataList, type DataListColumn } from '../components/ui/DataList';
 import { Badge, statusToVariant } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
-import { DailyTasksPanel } from '../components/DailyTasksPanel';
+import { Card, EmptyState, PageHeader, Segmented } from '../components/ui/Page';
 import { LeaveBalanceCard } from '../components/LeaveBalanceCard';
-import { CorrectCheckOutModal } from '../components/CorrectCheckOutModal';
+import { CorrectCheckOutModal, type CorrectableDay } from '../components/CorrectCheckOutModal';
 import { ExportTimesheetModal } from '../components/ExportTimesheetModal';
-import { breakSummary, describeLeave, formatMinutes, workedTime } from '../lib/format';
+import { DayDetail } from '../components/work/DayDetail';
+import { DayStatePill } from '../components/work/status';
+import { PersonHistory, usePersonReport, type Period } from '../components/work/PersonHistory';
+import { dayLabel, describeLeave, formatMinutes, todayKey } from '../lib/format';
 
 type LeaveMode = 'days' | 'hours';
+type Tab = 'work' | 'leave';
 
 const emptyForm = {
   leaveType: 'Sick',
@@ -34,21 +37,33 @@ function hoursFormDuration(from: string, to: string): number | null {
   return minutes > 0 ? minutes : null;
 }
 
+/** Your own day, history and leave. */
 export default function MyDashboard() {
   const { user } = useAuth();
-  const [attendances, setAttendances] = useState<Attendance[]>([]);
+  const [period, setPeriod] = useState<Period>('30');
+  const [tab, setTab] = useState<Tab>('work');
+  const { report, error: reportError, reload } = usePersonReport(user?.id, period);
   const [leaves, setLeaves] = useState<Leave[]>([]);
-  const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [expandedAttendanceId, setExpandedAttendanceId] = useState<string | null>(null);
-  const [correcting, setCorrecting] = useState<Attendance | null>(null);
+  const [correcting, setCorrecting] = useState<CorrectableDay | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
 
-  const today = new Date().toISOString().slice(0, 10);
+  const loadLeaves = async () => {
+    if (!user) return;
+    const result = await api.leaves.list({ employeeId: user.id, pageSize: 100 });
+    setLeaves(result.data);
+  };
+
+  useEffect(() => {
+    loadLeaves();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
+  const today = todayKey();
   // Pending any time; approved only until it starts (after that, ask an admin).
   const canCancel = (l: Leave) =>
     l.status === 'PENDING' || (l.status === 'APPROVED' && l.startDate.slice(0, 10) >= today);
@@ -58,29 +73,13 @@ export default function MyDashboard() {
     setCancellingId(l.id);
     try {
       await api.leaves.cancel(l.id);
-      await load();
+      await loadLeaves();
     } catch (err) {
       alert(err instanceof ApiError ? err.message : 'Failed to cancel leave');
     } finally {
       setCancellingId(null);
     }
   };
-
-  const load = async () => {
-    if (!user) return;
-    const [atts, lvs] = await Promise.all([
-      api.attendance.list({ employeeId: user.id, pageSize: 100 }),
-      api.leaves.list({ employeeId: user.id, pageSize: 100 }),
-    ]);
-    setAttendances(atts.data);
-    setLeaves(lvs.data);
-    setLoading(false);
-  };
-
-  useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
 
   const applyLeave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -102,7 +101,7 @@ export default function MyDashboard() {
       });
       setModalOpen(false);
       setForm(emptyForm);
-      await load();
+      await loadLeaves();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to submit leave request');
     } finally {
@@ -110,126 +109,101 @@ export default function MyDashboard() {
     }
   };
 
-  const attendanceColumns: DataListColumn<Attendance>[] = [
-    { header: 'Date', render: (a) => new Date(a.date).toLocaleDateString() },
-    {
-      header: 'Check In',
-      render: (a) => new Date(a.checkIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    },
-    {
-      header: 'Check Out',
-      render: (a) =>
-        a.checkOut
-          ? new Date(a.checkOut).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          : '--:--',
-    },
-    {
-      header: 'Worked',
-      render: (a) => (
-        <span>
-          {workedTime(a)}
-          {a.autoCheckedOut && (
-            <button
-              className="ml-2"
-              title="You didn't check out - closed automatically. Click to enter the real time."
-              onClick={(e) => {
-                e.stopPropagation();
-                setCorrecting(a);
-              }}
-            >
-              <Badge variant="warning">Auto · Fix</Badge>
-            </button>
-          )}
-        </span>
-      ),
-    },
-    { header: 'Breaks', render: (a) => breakSummary(a) },
-    {
-      header: 'Tasks',
-      render: (a) => (a.dailyTasks && a.dailyTasks.length > 0 ? `${a.dailyTasks.length} planned` : '--'),
-    },
-  ];
+  // Your own days: only an automatic check-out can be corrected by you.
+  const dayActions = (_date: string, day: PersonDay) =>
+    day.autoCheckedOut && day.checkIn && day.checkOut && day.attendanceIds.length === 1 ? (
+      <Button
+        variant="secondary"
+        className="px-3 py-1.5 text-xs"
+        onClick={() =>
+          setCorrecting({ id: day.attendanceIds[0], checkIn: day.checkIn!, checkOut: day.checkOut, autoCheckedOut: true })
+        }
+      >
+        Enter my real check-out time
+      </Button>
+    ) : null;
 
-  const leaveColumns: DataListColumn<Leave>[] = [
-    {
-      header: 'Leave',
-      render: (l) => (
-        <div>
-          <div className="text-sm font-semibold text-secondary">{l.leaveType}</div>
-          <div className="text-xs text-secondary/50">{describeLeave(l)}</div>
-        </div>
-      ),
-    },
-    { header: 'Reason', render: (l) => <span className="text-secondary/70">{l.reason}</span> },
-    { header: 'Status', render: (l) => <Badge variant={statusToVariant(l.status)}>{l.status}</Badge> },
-    {
-      header: '',
-      className: 'px-6 py-4 whitespace-nowrap text-right text-sm',
-      render: (l) =>
-        canCancel(l) ? (
-          <button
-            onClick={() => cancelLeave(l)}
-            disabled={cancellingId === l.id}
-            className="text-red-400 hover:text-red-300 font-medium disabled:opacity-50"
-          >
-            {cancellingId === l.id ? 'Cancelling...' : 'Cancel'}
-          </button>
-        ) : null,
-    },
-  ];
-
-  if (loading) return <div className="p-8 text-secondary/60 animate-pulse">Loading your dashboard...</div>;
+  const todayDay = report?.days.find((d) => d.date === today)?.day;
+  const pendingCount = leaves.filter((l) => l.status === 'PENDING').length;
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
-        <div>
-          <h2 className="text-3xl font-bold text-secondary tracking-tight">
-            Welcome, {user?.name?.split(' ')[0]}
-          </h2>
-          <p className="mt-2 text-sm text-secondary/60 font-medium">
-            Your attendance history and leave requests.
+    <div className="space-y-6">
+      <PageHeader
+        title={`Hi, ${user?.name?.split(' ')[0] ?? ''}`}
+        description={dayLabel(today, { weekday: 'long' })}
+        actions={
+          <>
+            <Button variant="secondary" onClick={() => setExportOpen(true)}>
+              <Download size={14} /> Timesheet
+            </Button>
+            <Button onClick={() => setModalOpen(true)}>
+              <Plus size={16} /> Apply for leave
+            </Button>
+          </>
+        }
+      />
+
+      <Card
+        title="Today"
+        actions={todayDay ? <DayStatePill state={todayDay.state} /> : undefined}
+      >
+        {todayDay && (todayDay.checkIn || todayDay.leaves.length) ? (
+          <DayDetail day={todayDay} shift={report?.employee.shift} />
+        ) : (
+          <p className="text-sm text-tertiary">
+            You haven't checked in today. Check in from the Ascentware bot in Teams.
           </p>
+        )}
+      </Card>
+
+      <Segmented
+        label="Section"
+        value={tab}
+        onChange={setTab}
+        options={[
+          { value: 'work', label: 'My work' },
+          { value: 'leave', label: pendingCount ? `My leave (${pendingCount} pending)` : 'My leave' },
+        ]}
+      />
+
+      {tab === 'work' ? (
+        <PersonHistory report={report} error={reportError} period={period} onPeriodChange={setPeriod} dayActions={dayActions} excludeToday />
+      ) : (
+        <div className="space-y-5">
+          <LeaveBalanceCard refreshKey={leaves} />
+          {leaves.length === 0 ? (
+            <EmptyState title="No leave requests yet">Use "Apply for leave" to request a day off or a few hours.</EmptyState>
+          ) : (
+            <Card bodyClassName="divide-y divide-borderBase">
+              {leaves.map((l) => (
+                <div key={l.id} className="flex flex-col gap-2 px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-secondary">
+                      {l.leaveType} · {describeLeave(l)}
+                      {l.durationMinutes ? <span className="text-tertiary"> ({formatMinutes(l.durationMinutes)})</span> : null}
+                    </p>
+                    <p className="truncate text-xs text-tertiary">{l.reason}</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Badge variant={statusToVariant(l.status)}>{l.status.toLowerCase()}</Badge>
+                    {canCancel(l) && (
+                      <button
+                        onClick={() => cancelLeave(l)}
+                        disabled={cancellingId === l.id}
+                        className="text-xs font-medium text-red-600 hover:underline disabled:opacity-50"
+                      >
+                        {cancellingId === l.id ? 'Cancelling…' : 'Cancel'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </Card>
+          )}
         </div>
-        <div className="flex gap-3">
-          <Button variant="secondary" onClick={() => setExportOpen(true)}>
-            <Download size={16} />
-            Timesheet
-          </Button>
-          <Button onClick={() => setModalOpen(true)}>
-            <Plus size={16} />
-            Apply for Leave
-          </Button>
-        </div>
-      </div>
+      )}
 
-      <LeaveBalanceCard refreshKey={leaves} />
-
-      <div>
-        <h3 className="text-lg font-semibold text-secondary mb-3">My Leave Requests</h3>
-        <DataList
-          columns={leaveColumns}
-          rows={leaves}
-          rowKey={(l) => l.id}
-          emptyMessage="You haven't applied for any leave yet."
-        />
-      </div>
-
-      <div>
-        <h3 className="text-lg font-semibold text-secondary mb-3">My Attendance History</h3>
-        <p className="text-xs text-secondary/40 mb-2">Click a row to see that day's planned tasks.</p>
-        <DataList
-          columns={attendanceColumns}
-          rows={attendances}
-          rowKey={(a) => a.id}
-          emptyMessage="No attendance records yet."
-          expandedRowKey={expandedAttendanceId}
-          onRowClick={(a) => setExpandedAttendanceId(expandedAttendanceId === a.id ? null : a.id)}
-          renderExpanded={(a) => <DailyTasksPanel tasks={a.dailyTasks} />}
-        />
-      </div>
-
-      <CorrectCheckOutModal attendance={correcting} onClose={() => setCorrecting(null)} onSaved={load} />
+      <CorrectCheckOutModal attendance={correcting} onClose={() => setCorrecting(null)} onSaved={reload} />
       <ExportTimesheetModal open={exportOpen} onClose={() => setExportOpen(false)} employeeId={user?.id} />
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Apply for Leave">

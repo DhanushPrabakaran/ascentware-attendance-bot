@@ -3,6 +3,7 @@ import {
   IsArray,
   IsBoolean,
   IsDateString,
+  IsEnum,
   IsInt,
   IsNotEmpty,
   IsOptional,
@@ -14,6 +15,8 @@ import {
   Min,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { LeaveStatus } from '@prisma/client';
+import { EmployeeScopedPaginationQueryDto } from '../../common/dto/employee-scoped-pagination-query.dto';
 
 const HH_MM = /^([01]\d|2[0-3]):[0-5]\d$/;
 
@@ -45,6 +48,12 @@ export class LeaveBalanceQueryDto {
   @Min(2000)
   @Max(2100)
   year?: number;
+}
+
+export class LeaveListQueryDto extends EmployeeScopedPaginationQueryDto {
+  @IsOptional()
+  @IsEnum(LeaveStatus)
+  status?: LeaveStatus;
 }
 
 export class LeavePolicyDto {

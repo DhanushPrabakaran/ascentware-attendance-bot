@@ -442,6 +442,7 @@ export class AdminService {
     page = DEFAULT_PAGE,
     pageSize = DEFAULT_PAGE_SIZE,
     employeeId?: string,
+    status?: LeaveStatus,
   ) {
     if (
       employeeId &&
@@ -453,11 +454,14 @@ export class AdminService {
       );
     }
 
-    const where = employeeId
-      ? { employeeId }
-      : visibleIds === 'ALL'
-        ? undefined
-        : { employeeId: { in: visibleIds } };
+    const where = {
+      ...(employeeId
+        ? { employeeId }
+        : visibleIds === 'ALL'
+          ? {}
+          : { employeeId: { in: visibleIds } }),
+      ...(status ? { status } : {}),
+    };
 
     const [data, total] = await Promise.all([
       this.prisma.leave.findMany({

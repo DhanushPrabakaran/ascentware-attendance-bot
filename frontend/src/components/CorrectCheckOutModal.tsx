@@ -4,6 +4,11 @@ import type { Attendance } from '../lib/types';
 import { Modal } from './ui/Modal';
 import { Button } from './ui/Button';
 
+/** What the modal needs to know about the day - an Attendance row or a report day. */
+export type CorrectableDay = Pick<Attendance, 'id' | 'checkIn' | 'checkOut' | 'autoCheckedOut'> & {
+  employee?: { name: string };
+};
+
 const inputClass =
   'block w-full px-3 py-2 bg-background border border-borderBase rounded-lg text-secondary focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-base sm:text-sm transition-colors';
 
@@ -16,7 +21,7 @@ export function CorrectCheckOutModal({
   onClose,
   onSaved,
 }: {
-  attendance: Attendance | null;
+  attendance: CorrectableDay | null;
   onClose: () => void;
   onSaved: () => void;
 }) {

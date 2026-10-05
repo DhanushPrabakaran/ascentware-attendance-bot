@@ -39,8 +39,8 @@ export default function Shifts() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
         <div>
-          <h2 className="text-3xl font-bold text-secondary tracking-tight">Shifts</h2>
-          <p className="mt-2 text-sm text-secondary/60 font-medium">Define working hours and schedules.</p>
+          <h2 className="text-2xl font-bold text-secondary tracking-tight">Shifts</h2>
+          <p className="mt-1 text-sm text-tertiary">Define working hours and schedules.</p>
         </div>
         <Button
           onClick={() => { setFormData({name: '', startTime: '', endTime: ''}); setIsModalOpen(true); }}
@@ -50,10 +50,10 @@ export default function Shifts() {
         </Button>
       </div>
 
-      <div className="bg-surface border border-borderBase rounded-xl overflow-hidden shadow-2xl shadow-background/50">
+      <div className="bg-surface border border-borderBase rounded-xl overflow-hidden shadow-saas">
         <ul className="divide-y divide-borderBase">
           {shifts.map((shift) => (
-            <li key={shift.id} className="p-6 hover:bg-white/5 transition-colors">
+            <li key={shift.id} className="p-6 hover:bg-surfaceHover/60 transition-colors">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-sm font-semibold text-secondary">{shift.name}</h3>

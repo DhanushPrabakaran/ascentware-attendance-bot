@@ -1,56 +1,62 @@
-import { useState } from 'react';
-import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
+import { useState, type ReactNode } from 'react';
+import { Outlet, NavLink, useNavigate, useLocation, matchPath } from 'react-router-dom';
 import {
-  Users,
-  Clock,
-  MessagesSquare,
-  LogOut,
-  LayoutDashboard,
-  CalendarOff,
-  FileText,
-  UserCheck,
-  Briefcase,
-  Menu,
-  X,
   Activity,
+  CalendarOff,
+  ClipboardList,
+  Clock,
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  MessagesSquare,
+  Users,
+  UsersRound,
+  X,
 } from 'lucide-react';
 import { clearToken } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { NotificationBell } from './NotificationBell';
+import { Avatar } from './ui/Page';
 
 interface NavItem {
   name: string;
   path: string;
-  icon: React.ReactNode;
+  icon: ReactNode;
 }
 
-function NavLinks({
-  navItems,
-  activePath,
-  onNavigate,
-}: {
-  navItems: NavItem[];
-  activePath: string;
-  onNavigate: () => void;
-}) {
+interface NavSection {
+  title?: string;
+  items: NavItem[];
+}
+
+function NavSections({ sections, onNavigate }: { sections: NavSection[]; onNavigate: () => void }) {
   return (
-    <>
-      {navItems.map((item) => (
-        <Link
-          key={item.name}
-          to={item.path}
-          onClick={onNavigate}
-          className={`flex items-center space-x-3 p-3 rounded-lg text-sm font-medium transition-colors ${
-            activePath === item.path
-              ? 'bg-primary text-white shadow-sm'
-              : 'text-tertiary hover:bg-surfaceHover hover:text-secondary'
-          }`}
-        >
-          {item.icon}
-          <span>{item.name}</span>
-        </Link>
+    <nav className="flex-1 space-y-6 overflow-y-auto px-3 py-4" aria-label="Main">
+      {sections.map((section, i) => (
+        <div key={section.title ?? i}>
+          {section.title && (
+            <p className="mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-wider text-tertiary/80">{section.title}</p>
+          )}
+          <div className="space-y-0.5">
+            {section.items.map((item) => (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                onClick={onNavigate}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                    isActive ? 'bg-primary/10 text-primary' : 'text-tertiary hover:bg-surfaceHover hover:text-secondary'
+                  }`
+                }
+              >
+                {item.icon}
+                <span>{item.name}</span>
+              </NavLink>
+            ))}
+          </div>
+        </div>
       ))}
-    </>
+    </nav>
   );
 }
 
@@ -65,110 +71,110 @@ export default function Layout() {
     navigate('/login');
   };
 
-  // Nav is built from {role, isManager}, not a fixed list - anyone can be a manager
-  // regardless of role (emergent from the reporting chain), and role/capability area
-  // aren't 1:1 (an ADMIN is still a person who wants their own attendance history).
-  const navItems: NavItem[] = [
-    { name: 'My Dashboard', path: '/my', icon: <LayoutDashboard size={20} /> },
+  // Built from {role, isManager}: anyone can be a manager (it comes from the reporting
+  // chain), and an admin is still a person with their own attendance.
+  const sections: NavSection[] = [
+    { items: [{ name: 'My day', path: '/my', icon: <LayoutDashboard size={18} /> }] },
   ];
-  if (user?.isManager) {
-    navItems.push({ name: 'My Team', path: '/team', icon: <UserCheck size={20} /> });
-  }
-  if (user?.role === 'HR') {
-    navItems.push({ name: 'HR View', path: '/hr', icon: <Briefcase size={20} /> });
+  if (user && (user.isManager || user.role === 'HR' || user.role === 'ADMIN')) {
+    sections.push({
+      title: 'Team',
+      items: [
+        { name: 'Today', path: '/today', icon: <Activity size={18} /> },
+        { name: 'Work log', path: '/work-log', icon: <ClipboardList size={18} /> },
+        { name: 'People', path: '/people', icon: <UsersRound size={18} /> },
+        { name: 'Leave requests', path: '/leaves', icon: <CalendarOff size={18} /> },
+      ],
+    });
   }
   if (user?.role === 'ADMIN') {
-    navItems.push(
-      { name: 'Overview', path: '/overview', icon: <Activity size={20} /> },
-      { name: 'Employees', path: '/employees', icon: <Users size={20} /> },
-      { name: 'Shifts', path: '/shifts', icon: <Clock size={20} /> },
-      { name: 'Attendance', path: '/attendance', icon: <FileText size={20} /> },
-      { name: 'Leaves', path: '/leaves', icon: <CalendarOff size={20} /> },
-      { name: 'Groups', path: '/groups', icon: <MessagesSquare size={20} /> },
-    );
+    sections.push({
+      title: 'Admin',
+      items: [
+        { name: 'Employees', path: '/employees', icon: <Users size={18} /> },
+        { name: 'Shifts', path: '/shifts', icon: <Clock size={18} /> },
+        { name: 'Groups & reminders', path: '/groups', icon: <MessagesSquare size={18} /> },
+      ],
+    });
   }
 
-  const activeName = navItems.find((i) => i.path === location.pathname)?.name || 'Ascentware';
+  const allItems = sections.flatMap((s) => s.items);
+  const activeName =
+    allItems.find((i) => i.path === location.pathname)?.name ??
+    (matchPath('/employees/:id', location.pathname) ? 'Person' : 'Ascentware');
 
-  return (
-    <div className="flex h-screen bg-background text-secondary font-sans">
-      {/* Sidebar: desktop */}
-      <div className="hidden md:flex w-64 bg-surface flex-col border-r border-borderBase shadow-sm">
-        <div className="p-6 text-xl font-bold border-b border-borderBase flex items-center space-x-3">
-          <img src="/ascentware-icon.png" alt="" className="w-8 h-8 object-contain shrink-0" />
-          <span className="tracking-tight text-secondary">Ascentware</span>
-        </div>
-        <nav className="flex-1 p-4 space-y-1">
-          <NavLinks navItems={navItems} activePath={location.pathname} onNavigate={() => setMobileNavOpen(false)} />
-        </nav>
-        <div className="p-4 border-t border-borderBase">
-          <button
-            onClick={handleLogout}
-            className="flex items-center space-x-3 p-3 w-full rounded-lg text-sm font-medium text-tertiary hover:bg-surfaceHover hover:text-secondary transition-colors"
-          >
-            <LogOut size={20} />
-            <span>Logout</span>
-          </button>
-        </div>
-      </div>
+  const brand = (
+    <div className="flex items-center gap-2.5">
+      <img src="/ascentware-icon.png" alt="" className="h-7 w-7 shrink-0 object-contain" />
+      <span className="text-base font-bold tracking-tight text-secondary">Ascentware</span>
+    </div>
+  );
 
-      {/* Sidebar: mobile drawer */}
-      {mobileNavOpen && (
-        <div className="md:hidden fixed inset-0 z-40 flex">
-          <div
-            className="fixed inset-0 bg-background/80 backdrop-blur-sm"
-            onClick={() => setMobileNavOpen(false)}
-          />
-          <div className="relative w-64 bg-surface flex flex-col border-r border-borderBase shadow-2xl">
-            <div className="p-6 border-b border-borderBase flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <img src="/ascentware-icon.png" alt="" className="w-8 h-8 object-contain shrink-0" />
-                <span className="tracking-tight text-secondary font-bold text-xl">Ascentware</span>
-              </div>
-              <button onClick={() => setMobileNavOpen(false)} aria-label="Close menu">
-                <X size={20} className="text-secondary/60" />
-              </button>
-            </div>
-            <nav className="flex-1 p-4 space-y-1">
-              <NavLinks navItems={navItems} activePath={location.pathname} onNavigate={() => setMobileNavOpen(false)} />
-            </nav>
-            <div className="p-4 border-t border-borderBase">
-              <button
-                onClick={handleLogout}
-                className="flex items-center space-x-3 p-3 w-full rounded-lg text-sm font-medium text-tertiary hover:bg-surfaceHover hover:text-secondary transition-colors"
-              >
-                <LogOut size={20} />
-                <span>Logout</span>
-              </button>
-            </div>
+  const footer = (
+    <div className="border-t border-borderBase p-3">
+      {user && (
+        <div className="mb-1 flex items-center gap-2.5 px-3 py-2">
+          <Avatar name={user.name || user.email} size="sm" />
+          <div className="min-w-0">
+            <p className="truncate text-sm font-medium text-secondary">{user.name}</p>
+            <p className="truncate text-xs text-tertiary">{user.email}</p>
           </div>
         </div>
       )}
+      <button
+        onClick={handleLogout}
+        className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-tertiary transition-colors hover:bg-surfaceHover hover:text-secondary"
+      >
+        <LogOut size={18} />
+        <span>Log out</span>
+      </button>
+    </div>
+  );
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden bg-background">
-        <header className="bg-surface/80 backdrop-blur-md border-b border-borderBase p-4 px-4 md:px-8 flex justify-between items-center z-10 sticky top-0 gap-3">
-          <div className="flex items-center gap-3 min-w-0">
+  return (
+    <div className="flex h-screen bg-background font-sans text-secondary">
+      {/* Sidebar: desktop */}
+      <aside className="hidden w-60 flex-col border-r border-borderBase bg-surface md:flex">
+        <div className="flex h-14 items-center border-b border-borderBase px-5">{brand}</div>
+        <NavSections sections={sections} onNavigate={() => setMobileNavOpen(false)} />
+        {footer}
+      </aside>
+
+      {/* Sidebar: mobile drawer */}
+      {mobileNavOpen && (
+        <div className="fixed inset-0 z-40 flex md:hidden">
+          <div className="fixed inset-0 bg-secondary/30 backdrop-blur-sm" onClick={() => setMobileNavOpen(false)} />
+          <aside className="relative flex w-64 flex-col border-r border-borderBase bg-surface shadow-2xl">
+            <div className="flex h-14 items-center justify-between border-b border-borderBase px-5">
+              {brand}
+              <button onClick={() => setMobileNavOpen(false)} aria-label="Close menu" className="text-tertiary hover:text-secondary">
+                <X size={20} />
+              </button>
+            </div>
+            <NavSections sections={sections} onNavigate={() => setMobileNavOpen(false)} />
+            {footer}
+          </aside>
+        </div>
+      )}
+
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <header className="sticky top-0 z-10 flex h-14 items-center justify-between gap-3 border-b border-borderBase bg-surface/90 px-4 backdrop-blur md:px-8">
+          <div className="flex min-w-0 items-center gap-3">
             <button
-              className="md:hidden p-2 -ml-2 text-secondary/70 hover:text-secondary"
+              className="-ml-2 p-2 text-tertiary hover:text-secondary md:hidden"
               onClick={() => setMobileNavOpen(true)}
               aria-label="Open menu"
             >
-              <Menu size={22} />
+              <Menu size={20} />
             </button>
-            <h1 className="text-lg md:text-xl font-semibold text-secondary tracking-tight truncate">
-              {activeName}
-            </h1>
+            <h1 className="truncate text-sm font-semibold text-secondary">{activeName}</h1>
           </div>
-          <div className="flex items-center gap-3 shrink-0">
-            <NotificationBell />
-            <div className="hidden sm:block text-sm font-medium px-4 py-2 bg-background rounded-full text-tertiary border border-borderBase truncate max-w-[180px]">
-              {user?.name || user?.email}
-            </div>
-          </div>
+          <NotificationBell />
         </header>
-        <main className="flex-1 p-4 md:p-8 overflow-y-auto">
-          <Outlet />
+        <main className="flex-1 overflow-y-auto">
+          <div className="mx-auto max-w-7xl p-4 md:p-8">
+            <Outlet />
+          </div>
         </main>
       </div>
     </div>

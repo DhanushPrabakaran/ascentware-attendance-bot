@@ -10,6 +10,10 @@ import type {
   ScheduleSettings,
   LeavePolicy,
   LeaveBalance,
+  DayReport,
+  PeopleRow,
+  EmployeeReport,
+  Attention,
 } from './types';
 
 const TOKEN_KEY = 'authToken';
@@ -93,9 +97,9 @@ async function download(path: string, fallbackName: string) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-function qs(params: Record<string, string | number | boolean | undefined>): string {
+function qs(params: object): string {
   const search = new URLSearchParams();
-  for (const [key, value] of Object.entries(params)) {
+  for (const [key, value] of Object.entries(params as Record<string, string | number | boolean | undefined>)) {
     if (value !== undefined) search.set(key, String(value));
   }
   const str = search.toString();
@@ -164,7 +168,7 @@ export const api = {
       }),
   },
   leaves: {
-    list: (params: ListParams & { employeeId?: string } = {}) =>
+    list: (params: ListParams & { employeeId?: string; status?: LeaveStatus } = {}) =>
       request<PaginatedResult<Leave>>(`/admin/leaves${qs(params)}`),
     get: (id: string) => request<Leave>(`/admin/leaves/${id}`),
     applyOwn: (data: {
@@ -239,6 +243,14 @@ export const api = {
       }),
     remove: (id: string) =>
       request<TeamsGroup>(`/admin/groups/${id}`, { method: 'DELETE' }),
+  },
+  reports: {
+    day: (date?: string) => request<DayReport>(`/reports/day${qs({ date })}`),
+    attention: () => request<Attention>('/reports/attention'),
+    people: (params: { from?: string; to?: string } = {}) =>
+      request<PeopleRow[]>(`/reports/people${qs(params)}`),
+    employee: (id: string, params: { from?: string; to?: string } = {}) =>
+      request<EmployeeReport>(`/reports/employees/${id}${qs(params)}`),
   },
   notifications: {
     list: (params: ListParams & { unreadOnly?: boolean } = {}) =>

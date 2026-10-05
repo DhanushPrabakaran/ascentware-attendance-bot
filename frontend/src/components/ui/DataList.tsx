@@ -1,4 +1,4 @@
-import { Fragment, ReactNode } from 'react';
+import { Fragment, type ReactNode } from 'react';
 
 export interface DataListColumn<T> {
   header: string;
@@ -32,23 +32,23 @@ export function DataList<T>({
 }) {
   if (rows.length === 0) {
     return (
-      <div className="bg-surface border border-borderBase rounded-xl p-12 text-center text-secondary/40 text-sm font-medium shadow-2xl shadow-background/50">
+      <div className="bg-surface border border-borderBase rounded-xl p-12 text-center text-secondary/40 text-sm font-medium shadow-saas">
         {emptyMessage}
       </div>
     );
   }
 
   return (
-    <div className="bg-surface border border-borderBase rounded-xl overflow-hidden shadow-2xl shadow-background/50">
+    <div className="bg-surface border border-borderBase rounded-xl overflow-hidden shadow-saas">
       <div className="hidden md:block overflow-x-auto">
         <table className="min-w-full divide-y divide-borderBase">
-          <thead className="bg-white/5">
+          <thead className="bg-surfaceHover/50">
             <tr>
               {columns.map((col) => (
                 <th
                   key={col.header}
                   scope="col"
-                  className="px-6 py-4 text-left text-xs font-semibold text-secondary/60 uppercase tracking-wider"
+                  className="px-6 py-3 text-left text-xs font-medium text-tertiary"
                 >
                   {col.header}
                 </th>
@@ -60,7 +60,7 @@ export function DataList<T>({
               <Fragment key={rowKey(row)}>
                 <tr
                   onClick={onRowClick ? () => onRowClick(row) : undefined}
-                  className={`hover:bg-white/5 transition-colors ${onRowClick ? 'cursor-pointer' : ''}`}
+                  className={`hover:bg-surfaceHover/60 transition-colors ${onRowClick ? 'cursor-pointer' : ''}`}
                 >
                   {columns.map((col) => (
                     <td

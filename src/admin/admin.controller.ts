@@ -30,6 +30,7 @@ import {
   AttendanceExportQueryDto,
   CorrectCheckOutDto,
   LeaveBalanceQueryDto,
+  LeaveListQueryDto,
   LeavePolicyDto,
   ScheduleSettingsDto,
 } from './dto/attendance-tools.dto';
@@ -131,7 +132,7 @@ export class AdminController {
   @Get('leaves')
   async getLeaves(
     @CurrentUser() user: JwtPayload,
-    @Query() query: EmployeeScopedPaginationQueryDto,
+    @Query() query: LeaveListQueryDto,
   ) {
     const visibleIds = await this.adminService.getVisibleEmployeeIds(user);
     return this.adminService.getLeaves(
@@ -139,6 +140,7 @@ export class AdminController {
       query.page,
       query.pageSize,
       query.employeeId,
+      query.status,
     );
   }
 

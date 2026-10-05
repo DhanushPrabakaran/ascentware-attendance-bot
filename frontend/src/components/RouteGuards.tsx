@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import type { Role } from '../lib/types';
@@ -27,6 +27,16 @@ export function RequireManager({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
   if (loading) return null;
   if (!user || !user.isManager) {
+    return <Navigate to="/my" replace />;
+  }
+  return <>{children}</>;
+}
+
+/** Pages about other people's work: anyone with reports, HR, or an admin. */
+export function RequireTeamAccess({ children }: { children: ReactNode }) {
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  if (!user || !(user.isManager || user.role === 'HR' || user.role === 'ADMIN')) {
     return <Navigate to="/my" replace />;
   }
   return <>{children}</>;

@@ -138,3 +138,120 @@ export interface AppNotification {
   readAt: string | null;
   createdAt: string;
 }
+
+// ---- Reports (/reports/*) ----
+
+export type DayState = 'working' | 'on_break' | 'checked_out' | 'on_leave' | 'absent';
+
+export interface ReportEmployee {
+  id: string;
+  name: string;
+  email: string;
+  role: Role;
+  teamsUserId: string | null;
+  managerEmails: string[];
+  shift: { name: string; startTime: string; endTime: string } | null;
+}
+
+export interface DayTask {
+  id: string;
+  taskName: string;
+  priority: string;
+  estimatedMinutes: number;
+  timeTakenMinutes: number;
+  status: string;
+  remarks: string | null;
+}
+
+export interface PersonDay {
+  state: DayState;
+  checkIn: string | null;
+  checkOut: string | null;
+  late: boolean;
+  autoCheckedOut: boolean;
+  workedMinutes: number;
+  breakMinutes: number;
+  lunchMinutes: number;
+  permissionMinutes: number;
+  onBreakSince: string | null;
+  onBreakType: string | null;
+  attendanceIds: string[];
+  breaks: { start: string; end: string | null; minutes: number; type: string }[];
+  tasks: DayTask[];
+  taskStats: {
+    planned: number;
+    completed: number;
+    inProgress: number;
+    blocked: number;
+    notStarted: number;
+    estimatedMinutes: number;
+    spentMinutes: number;
+  };
+  leaves: {
+    id: string;
+    leaveType: string;
+    startTime: string | null;
+    endTime: string | null;
+    durationMinutes: number | null;
+  }[];
+  summary: { overallStatus: string; blockerType: string | null; remarks: string | null } | null;
+}
+
+export interface DayReport {
+  date: string;
+  isToday: boolean;
+  people: { employee: ReportEmployee; day: PersonDay }[];
+  totals: {
+    people: number;
+    working: number;
+    onBreak: number;
+    checkedOut: number;
+    onLeave: number;
+    absent: number;
+    late: number;
+    workedMinutes: number;
+    tasksPlanned: number;
+    tasksCompleted: number;
+    tasksBlocked: number;
+  };
+}
+
+export interface PeriodStats {
+  daysWorked: number;
+  workedMinutes: number;
+  avgWorkedMinutes: number;
+  breakMinutes: number;
+  avgCheckIn: string | null;
+  lateDays: number;
+  leaveDays: number;
+  autoCheckOuts: number;
+  tasksPlanned: number;
+  tasksCompleted: number;
+  tasksBlocked: number;
+  estimatedMinutes: number;
+  spentMinutes: number;
+}
+
+export interface PeopleRow {
+  employee: ReportEmployee;
+  today: DayState;
+  stats: PeriodStats;
+}
+
+export interface EmployeeReport {
+  employee: ReportEmployee & {
+    hrEmail: string | null;
+    groups: { id: string; name: string }[];
+    createdAt: string;
+  };
+  from: string;
+  to: string;
+  stats: PeriodStats;
+  series: { date: string; state: DayState; workedMinutes: number; breakMinutes: number; late: boolean }[];
+  days: { date: string; day: PersonDay }[];
+}
+
+export interface Attention {
+  pendingLeaves: (Leave & { employee: { id: string; name: string } })[];
+  autoCheckOuts: (Attendance & { employee: { id: string; name: string } })[];
+}

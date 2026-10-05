@@ -12,6 +12,7 @@ import { AdminModule } from './admin/admin.module';
 import { AuthModule } from './auth/auth.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { HealthModule } from './health/health.module';
+import { ReportsModule } from './reports/reports.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { RolesGuard } from './auth/guards/roles.guard';
 
@@ -35,6 +36,7 @@ import { RolesGuard } from './auth/guards/roles.guard';
     AuthModule,
     NotificationsModule,
     HealthModule,
+    ReportsModule,
   ],
   controllers: [AppController],
   providers: [

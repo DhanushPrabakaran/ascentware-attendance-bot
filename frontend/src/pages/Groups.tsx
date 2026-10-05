@@ -221,8 +221,8 @@ export default function Groups() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
         <div>
-          <h2 className="text-3xl font-bold text-secondary tracking-tight">Groups</h2>
-          <p className="mt-2 text-sm text-secondary/60 font-medium">
+          <h2 className="text-2xl font-bold text-secondary tracking-tight">Groups</h2>
+          <p className="mt-1 text-sm text-tertiary">
             Teams chats where the bot posts check-ins, breaks, check-outs and approved leave.
             Employees post to the groups assigned on their profile, or to the{' '}
             <strong className="text-secondary/80">default</strong> groups if none are assigned.
