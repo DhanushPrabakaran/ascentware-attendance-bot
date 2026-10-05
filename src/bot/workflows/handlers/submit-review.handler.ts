@@ -1,10 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { TurnContext, MessageFactory } from 'botbuilder';
+import { Logger } from 'nestjs-pino';
 import { HandlerResult } from '../interfaces/action-handler.interface';
 import { BaseActionHandler } from './base-action.handler';
 import { WorkPlanService } from '../../../work-plan/work-plan.service';
 import { AttendanceService } from '../../../attendance/attendance.service';
 import { CardBuilder } from '../../cards/CardBuilder';
+import { CheckoutSummaryCard } from '../../cards/CheckoutSummaryCard';
 import { BotHelper } from '../../BotHelper';
 import { formatDuration } from '../../../common/time';
 
@@ -14,6 +16,7 @@ export class SubmitReviewHandler extends BaseActionHandler {
     private readonly workPlanService: WorkPlanService,
     private readonly attendanceService: AttendanceService,
     private readonly botHelper: BotHelper,
+    private readonly logger: Logger,
   ) {
     super();
   }
@@ -45,10 +48,22 @@ export class SubmitReviewHandler extends BaseActionHandler {
     const employeeName = context.activity.from.name || 'An employee';
     const working = formatDuration(result.workingMinutes);
     const breaks = formatDuration(result.breakMinutes);
-    await this.botHelper.notifyGroupChat(
-      context,
-      `👋 **${employeeName}** has checked out for the day.\n*Working Time: ${working} | Break Time: ${breaks}*`,
-    );
+    try {
+      const tasks = await this.workPlanService.getTasksByAttendanceId(
+        value.attendanceId,
+      );
+      await this.botHelper.notifyGroupChat(context, {
+        type: 'message',
+        attachments: [CheckoutSummaryCard.getCard(employeeName, tasks, result)],
+      });
+    } catch (e: any) {
+      // The check-out is saved either way - a failed group post shouldn't block the user.
+      this.logger.error(
+        `Failed to post check-out summary to group: ${e.message}`,
+        e.stack,
+        SubmitReviewHandler.name,
+      );
+    }
 
     return this.respond([
       this.cardActivity(
