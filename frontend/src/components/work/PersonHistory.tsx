@@ -66,6 +66,7 @@ export function PersonHistory({
   headerActions,
   dayActions,
   excludeToday = false,
+  onChanged,
 }: {
   report: EmployeeReport | null;
   error: string | null;
@@ -75,6 +76,7 @@ export function PersonHistory({
   dayActions?: (date: string, day: PersonDay) => ReactNode;
   /** Leave today out of "Day by day" - for a page that already shows today above. */
   excludeToday?: boolean;
+  onChanged?: () => void;
 }) {
   const [open, setOpen] = useState<Set<string>>(new Set());
   const days = (report?.days ?? []).filter((d) => !excludeToday || d.date !== todayKey());
@@ -149,7 +151,7 @@ export function PersonHistory({
               <EmptyState title="No work recorded in this period" />
             ) : (
               <ul className="space-y-2">
-                {days.map(({ date, day }) => {
+                {days.map(({ date, day, canEditTasks }) => {
                   const isOpen = open.has(date);
                   return (
                     <li key={date} className="overflow-hidden rounded-xl border border-borderBase bg-surface shadow-saas">
@@ -172,7 +174,13 @@ export function PersonHistory({
                       </button>
                       {isOpen && (
                         <div className="border-t border-borderBase bg-background/60 px-4 py-4 sm:px-5">
-                          <DayDetail day={day} shift={report.employee.shift} actions={dayActions?.(date, day)} />
+                          <DayDetail
+                            day={day}
+                            shift={report.employee.shift}
+                            actions={dayActions?.(date, day)}
+                            canEditTasks={canEditTasks}
+                            onChanged={onChanged}
+                          />
                         </div>
                       )}
                     </li>

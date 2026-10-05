@@ -25,12 +25,37 @@ export class WorkPlanService {
       });
     }
 
+    // A task with the same name as one left unfinished on the last working day is that
+    // task carried over (the check-in card pre-fills them), so link it back - the
+    // earlier day then shows where it went instead of looking abandoned.
+    const attendance = await this.prisma.attendance.findUnique({
+      where: { id: attendanceId },
+      select: { employeeId: true },
+    });
+    const unfinished = attendance
+      ? ((
+          await this.getUnfinishedTasksFromLastDay(
+            attendance.employeeId,
+            attendanceId,
+          )
+        )?.tasks ?? [])
+      : [];
+    const key = (name: string) => name.trim().toLowerCase();
+    const available = new Map<string, string[]>();
+    for (const t of unfinished) {
+      available.set(key(t.taskName), [
+        ...(available.get(key(t.taskName)) ?? []),
+        t.id,
+      ]);
+    }
+
     // Saving replaces the whole plan (that's how "Add / Edit Plan" works). One
     // transaction so a failure can't leave the day with no tasks.
     return this.prisma.$transaction(async (tx) => {
       await tx.dailyTask.deleteMany({ where: { attendanceId } });
       const created = [];
       for (const [position, task] of tasks.entries()) {
+        const carriedFromId = available.get(key(task.taskName))?.shift();
         created.push(
           await tx.dailyTask.create({
             data: {
@@ -40,6 +65,7 @@ export class WorkPlanService {
               priority: task.priority || 'normal',
               status: 'not_started',
               position,
+              carriedFromId: carriedFromId ?? null,
             },
           }),
         );

@@ -49,6 +49,7 @@ model Employee {
   attendances   Attendance[]
   leaves        Leave[]
   notifications Notification[]
+  taskEdits     TaskEdit[]
 
   // Teams group chats this person's attendance/leave announcements go to. Empty means
   // "use the default groups" (TeamsGroup.isDefault) - see GroupsService.getTargetsForEmployee.
@@ -186,8 +187,30 @@ model DailyTask {
   status           String     @default("not_started") // not_started, in_progress, completed
   remarks          String?
 
+  // Set when this task was carried over from an unfinished task on an earlier day - the
+  // earlier one then reads "moved to <date>" instead of looking abandoned.
+  carriedFromId String?
+  carriedFrom   DailyTask?  @relation("TaskCarry", fields: [carriedFromId], references: [id], onDelete: SetNull)
+  carriedInto   DailyTask[] @relation("TaskCarry")
+  edits         TaskEdit[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+/// A change made to a task after the fact (from the web), kept so history can be
+/// corrected without being silently rewritten.
+model TaskEdit {
+  id         String    @id @default(uuid())
+  taskId     String
+  task       DailyTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  editedById String
+  editedBy   Employee  @relation(fields: [editedById], references: [id], onDelete: Restrict)
+  // { field: [before, after] } for each field that changed
+  changes    Json
+  createdAt  DateTime  @default(now())
+
+  @@index([taskId])
 }
 
 model DailySummary {

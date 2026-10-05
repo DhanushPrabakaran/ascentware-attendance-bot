@@ -11,6 +11,17 @@ export interface DayTask {
   timeTakenMinutes: number;
   status: string;
   remarks: string | null;
+  /** Day it was carried over from / to ("YYYY-MM-DD"), when it's one task across days. */
+  carriedFromDate?: string | null;
+  carriedToDate?: string | null;
+  /** Changes made after the fact on the web, newest first. */
+  edits?: TaskEditEntry[];
+}
+
+export interface TaskEditEntry {
+  at: Date;
+  by: string;
+  changes: Record<string, [unknown, unknown]>;
 }
 
 export interface DaySession {

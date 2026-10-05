@@ -4,7 +4,12 @@ import { CheckInDto } from './dto/check-in.dto';
 import { CheckOutDto } from './dto/check-out.dto';
 import { StartBreakDto } from './dto/start-break.dto';
 import { EndBreakDto } from './dto/end-break.dto';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { Role } from '@prisma/client';
 
+// Acts on any employee by Teams ID, so admin-only - employees check in through the bot,
+// which uses AttendanceService directly.
+@Roles(Role.ADMIN)
 @Controller('api/v1/attendance')
 export class AttendanceController {
   constructor(private readonly attendanceService: AttendanceService) {}

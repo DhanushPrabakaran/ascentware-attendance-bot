@@ -1,5 +1,23 @@
-import { Controller, Get, Param, ParseUUIDPipe, Query } from '@nestjs/common';
-import { IsDateString, IsOptional } from 'class-validator';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Query,
+} from '@nestjs/common';
+import {
+  IsDateString,
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  Max,
+  MaxLength,
+  Min,
+  ValidateIf,
+} from 'class-validator';
 import { ReportsService } from './reports.service';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
@@ -19,6 +37,24 @@ class RangeQueryDto {
   @IsOptional()
   @IsDateString()
   to?: string;
+}
+
+class EditTaskDto {
+  @IsOptional()
+  @IsIn(['not_started', 'in_progress', 'completed', 'blocked'])
+  status?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(24 * 60)
+  timeTakenMinutes?: number;
+
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsString()
+  @MaxLength(1000)
+  remarks?: string | null;
 }
 
 /** Defaults to the 30 days ending today. */
@@ -61,5 +97,16 @@ export class ReportsController {
   ) {
     const { from, to } = range(query);
     return this.reports.getEmployeeReport(user, id, from, to);
+  }
+
+  /** Correct a past task's status / time spent / notes - permission-checked and
+   *  recorded, see ReportsService.editTask. */
+  @Patch('tasks/:id')
+  editTask(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') id: string,
+    @Body() dto: EditTaskDto,
+  ) {
+    return this.reports.editTask(user, id, dto);
   }
 }

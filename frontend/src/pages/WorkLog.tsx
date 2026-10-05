@@ -27,14 +27,16 @@ export default function WorkLog() {
   const [correcting, setCorrecting] = useState<CorrectableDay | null>(null);
   const [exporting, setExporting] = useState(false);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (keepExpanded = false) => {
     setLoading(true);
     try {
       const day = await api.reports.day(date);
       setReport(day);
       setError(null);
       // Open everyone who has something to show, so the page reads as a log.
-      setExpanded(new Set(day.people.filter((p) => p.day.checkIn || p.day.tasks.length).map((p) => p.employee.id)));
+      if (!keepExpanded) {
+        setExpanded(new Set(day.people.filter((p) => p.day.checkIn || p.day.tasks.length).map((p) => p.employee.id)));
+      }
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to load the work log');
     } finally {
@@ -45,6 +47,9 @@ export default function WorkLog() {
   useEffect(() => {
     load();
   }, [load]);
+
+  /** After an edit: reload without collapsing what's open. */
+  const refresh = () => load(true);
 
   const setDate = (next: string) => {
     if (next > todayKey()) return;
@@ -186,12 +191,12 @@ export default function WorkLog() {
           {entries.length === 0 ? (
             <EmptyState title="Nothing to show">No one matches this filter on {dayLabel(date)}.</EmptyState>
           ) : (
-            <PersonDayList entries={entries} expanded={expanded} onToggle={toggle} live={isToday} renderActions={actions} />
+            <PersonDayList entries={entries} expanded={expanded} onToggle={toggle} live={isToday} renderActions={actions} onChanged={refresh} />
           )}
         </>
       ) : null}
 
-      <CorrectCheckOutModal attendance={correcting} onClose={() => setCorrecting(null)} onSaved={load} />
+      <CorrectCheckOutModal attendance={correcting} onClose={() => setCorrecting(null)} onSaved={refresh} />
     </div>
   );
 }

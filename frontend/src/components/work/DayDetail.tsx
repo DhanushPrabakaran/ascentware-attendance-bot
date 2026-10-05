@@ -18,10 +18,15 @@ export function DayDetail({
   day,
   shift,
   actions,
+  canEditTasks = false,
+  onChanged,
 }: {
   day: PersonDay;
   shift?: { startTime: string; endTime: string } | null;
   actions?: ReactNode;
+  /** The viewer may correct this day's tasks (server decides; see /reports). */
+  canEditTasks?: boolean;
+  onChanged?: () => void;
 }) {
   const open = day.state === 'working' || day.state === 'on_break';
   const { taskStats: t } = day;
@@ -73,7 +78,12 @@ export function DayDetail({
               </span>
             )}
           </div>
-          <TaskTable tasks={day.tasks} reviewed={!open} />
+          <TaskTable tasks={day.tasks} dayOpen={open} canEdit={canEditTasks} onEdited={onChanged} />
+          {canEditTasks && !open && day.taskStats.notStarted > 0 && (
+            <p className="mt-2 text-xs text-amber-800">
+              Some tasks weren't reviewed at check-out. Use the pencil to record what happened with them.
+            </p>
+          )}
         </div>
       )}
 

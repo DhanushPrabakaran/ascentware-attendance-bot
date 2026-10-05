@@ -128,6 +128,7 @@ export default function EmployeeDetail() {
             </Button>
           }
           dayActions={dayActions}
+          onChanged={reload}
         />
       ) : (
         <div className="space-y-5">

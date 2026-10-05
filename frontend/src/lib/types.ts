@@ -161,6 +161,11 @@ export interface DayTask {
   timeTakenMinutes: number;
   status: string;
   remarks: string | null;
+  /** "YYYY-MM-DD" it was carried over from / to, when one task spans days. */
+  carriedFromDate?: string | null;
+  carriedToDate?: string | null;
+  /** Corrections made after the day, newest first. */
+  edits?: { at: string; by: string; changes: Record<string, [unknown, unknown]> }[];
 }
 
 export interface PersonDay {
@@ -200,7 +205,7 @@ export interface PersonDay {
 export interface DayReport {
   date: string;
   isToday: boolean;
-  people: { employee: ReportEmployee; day: PersonDay }[];
+  people: { employee: ReportEmployee; day: PersonDay; canEditTasks: boolean }[];
   totals: {
     people: number;
     working: number;
@@ -248,7 +253,7 @@ export interface EmployeeReport {
   to: string;
   stats: PeriodStats;
   series: { date: string; state: DayState; workedMinutes: number; breakMinutes: number; late: boolean }[];
-  days: { date: string; day: PersonDay }[];
+  days: { date: string; day: PersonDay; canEditTasks: boolean }[];
 }
 
 export interface Attention {

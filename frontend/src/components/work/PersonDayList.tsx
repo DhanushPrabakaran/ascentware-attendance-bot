@@ -11,6 +11,7 @@ import type { CorrectableDay } from '../CorrectCheckOutModal';
 export interface PersonDayEntry {
   employee: ReportEmployee;
   day: PersonDay;
+  canEditTasks?: boolean;
 }
 
 /** The single session behind a finished day, for the check-out correction modal -
@@ -56,6 +57,7 @@ export function PersonDayList({
   onToggle,
   live,
   renderActions,
+  onChanged,
 }: {
   entries: PersonDayEntry[];
   expanded: Set<string>;
@@ -63,6 +65,7 @@ export function PersonDayList({
   /** Today's view: show "worked so far" and what they're working on. */
   live?: boolean;
   renderActions?: (entry: PersonDayEntry) => ReactNode;
+  onChanged?: () => void;
 }) {
   return (
     <ul className="divide-y divide-borderBase overflow-hidden rounded-xl border border-borderBase bg-surface shadow-saas">
@@ -144,7 +147,13 @@ export function PersonDayList({
 
             {isOpen && (
               <div className="border-t border-borderBase bg-background/60 px-4 py-4 sm:px-5">
-                <DayDetail day={day} shift={employee.shift} actions={renderActions?.(entry)} />
+                <DayDetail
+                  day={day}
+                  shift={employee.shift}
+                  actions={renderActions?.(entry)}
+                  canEditTasks={entry.canEditTasks}
+                  onChanged={onChanged}
+                />
               </div>
             )}
           </li>

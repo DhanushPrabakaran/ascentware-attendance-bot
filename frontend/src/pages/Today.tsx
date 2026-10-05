@@ -218,7 +218,7 @@ export default function Today() {
         {entries.length === 0 ? (
           <EmptyState title="Nobody here">No one matches this filter.</EmptyState>
         ) : (
-          <PersonDayList entries={entries} expanded={expanded} onToggle={toggle} live renderActions={actions} />
+          <PersonDayList entries={entries} expanded={expanded} onToggle={toggle} live renderActions={actions} onChanged={load} />
         )}
       </div>
 

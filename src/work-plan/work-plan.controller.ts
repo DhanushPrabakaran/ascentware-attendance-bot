@@ -17,6 +17,8 @@ import { AttendanceService } from '../attendance/attendance.service';
 import { AdminService } from '../admin/admin.service';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { Role } from '@prisma/client';
 
 @Controller('api/v1/work-plan')
 export class WorkPlanController {
@@ -26,6 +28,10 @@ export class WorkPlanController {
     private readonly adminService: AdminService,
   ) {}
 
+  // Raw writes, not scoped to an owner: the bot calls WorkPlanService directly, so these
+  // stay admin-only. People correct their own past tasks via PATCH /reports/tasks/:id,
+  // which checks who may edit what and records each change.
+  @Roles(Role.ADMIN)
   @Post()
   saveDailyPlan(@Body() dto: SaveDailyPlanDto) {
     return this.workPlanService.saveDailyPlan(
@@ -35,16 +41,19 @@ export class WorkPlanController {
     );
   }
 
+  @Roles(Role.ADMIN)
   @Put('bulk-progress')
   bulkUpdateProgress(@Body() dto: BulkUpdateTaskDto) {
     return this.workPlanService.bulkUpdateTaskProgress(dto.tasks);
   }
 
+  @Roles(Role.ADMIN)
   @Put(':id/progress')
   updateProgress(@Param('id') id: string, @Body() dto: UpdateTaskProgressDto) {
     return this.workPlanService.updateTaskProgress(id, dto);
   }
 
+  @Roles(Role.ADMIN)
   @Post('summary')
   saveSummary(@Body() dto: SaveSummaryDto) {
     const { attendanceId, ...rest } = dto;

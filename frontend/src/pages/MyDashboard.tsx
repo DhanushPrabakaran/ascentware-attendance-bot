@@ -167,7 +167,7 @@ export default function MyDashboard() {
       />
 
       {tab === 'work' ? (
-        <PersonHistory report={report} error={reportError} period={period} onPeriodChange={setPeriod} dayActions={dayActions} excludeToday />
+        <PersonHistory report={report} error={reportError} period={period} onPeriodChange={setPeriod} dayActions={dayActions} excludeToday onChanged={reload} />
       ) : (
         <div className="space-y-5">
           <LeaveBalanceCard refreshKey={leaves} />

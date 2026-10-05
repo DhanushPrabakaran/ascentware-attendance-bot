@@ -14,6 +14,7 @@ import type {
   PeopleRow,
   EmployeeReport,
   Attention,
+  DayTask,
 } from './types';
 
 const TOKEN_KEY = 'authToken';
@@ -251,6 +252,9 @@ export const api = {
       request<PeopleRow[]>(`/reports/people${qs(params)}`),
     employee: (id: string, params: { from?: string; to?: string } = {}) =>
       request<EmployeeReport>(`/reports/employees/${id}${qs(params)}`),
+    /** Correct a past task; recorded with who and when. */
+    editTask: (id: string, data: { status?: string; timeTakenMinutes?: number; remarks?: string | null }) =>
+      request<DayTask>(`/reports/tasks/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   },
   notifications: {
     list: (params: ListParams & { unreadOnly?: boolean } = {}) =>
