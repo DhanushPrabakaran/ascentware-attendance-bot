@@ -12,6 +12,7 @@ import { StartBreakHandler } from './start-break.handler';
 import { EndBreakHandler } from './end-break.handler';
 import { CheckOutHandler } from './checkout.handler';
 import { SubmitReviewHandler } from './submit-review.handler';
+import { CorrectCheckOutHandler } from './correct-checkout.handler';
 
 export const workflowHandlerProviders = [
   CheckInHandler,
@@ -28,6 +29,7 @@ export const workflowHandlerProviders = [
   EndBreakHandler,
   CheckOutHandler,
   SubmitReviewHandler,
+  CorrectCheckOutHandler,
 ];
 
 export {
@@ -45,4 +47,5 @@ export {
   EndBreakHandler,
   CheckOutHandler,
   SubmitReviewHandler,
+  CorrectCheckOutHandler,
 };

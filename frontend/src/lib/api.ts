@@ -7,6 +7,9 @@ import type {
   AppNotification,
   LeaveStatus,
   PaginatedResult,
+  ScheduleSettings,
+  LeavePolicy,
+  LeaveBalance,
 } from './types';
 
 const TOKEN_KEY = 'authToken';
@@ -43,7 +46,7 @@ export function clearToken() {
   }
 }
 
-async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+async function send(path: string, options: RequestInit = {}): Promise<Response> {
   const token = getToken();
   const res = await fetch(`/api/v1${path}`, {
     ...options,
@@ -66,9 +69,28 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     const body = await res.json().catch(() => ({}));
     throw new ApiError(res.status, body?.message || 'Request failed');
   }
+  return res;
+}
 
+async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const res = await send(path, options);
   if (res.status === 204) return undefined as T;
   return res.json();
+}
+
+/** Fetches a file with the auth header and hands it to the browser as a download. */
+async function download(path: string, fallbackName: string) {
+  const res = await send(path);
+  const disposition = res.headers.get('Content-Disposition') || '';
+  const name = /filename="([^"]+)"/.exec(disposition)?.[1] || fallbackName;
+  const url = URL.createObjectURL(await res.blob());
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = name;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 function qs(params: Record<string, string | number | boolean | undefined>): string {
@@ -162,10 +184,41 @@ export const api = {
         method: 'PUT',
         body: JSON.stringify({ status }),
       }),
+    cancel: (id: string) =>
+      request<Leave>(`/admin/leaves/${id}/cancel`, { method: 'POST' }),
+    balance: (params: { employeeId?: string; year?: number } = {}) =>
+      request<LeaveBalance>(`/admin/leaves/balance${qs(params)}`),
+    policies: () => request<LeavePolicy[]>('/admin/leave-policies'),
+    setPolicy: (policy: LeavePolicy) =>
+      request<LeavePolicy>('/admin/leave-policies', {
+        method: 'PUT',
+        body: JSON.stringify(policy),
+      }),
+    deletePolicy: (leaveType: string) =>
+      request<{ success: boolean }>(
+        `/admin/leave-policies/${encodeURIComponent(leaveType)}`,
+        { method: 'DELETE' },
+      ),
   },
   attendance: {
     list: (params: ListParams & { employeeId?: string } = {}) =>
       request<PaginatedResult<Attendance>>(`/admin/attendances${qs(params)}`),
+    /** "HH:mm" office time on the session's own day. */
+    correctCheckOut: (id: string, time: string) =>
+      request<Attendance>(`/admin/attendances/${id}/check-out`, {
+        method: 'PUT',
+        body: JSON.stringify({ time }),
+      }),
+    exportCsv: (params: { from: string; to: string; employeeId?: string }) =>
+      download(`/admin/attendances/export${qs(params)}`, 'timesheet.csv'),
+  },
+  schedule: {
+    get: () => request<ScheduleSettings>('/admin/settings/schedule'),
+    update: (data: Partial<ScheduleSettings>) =>
+      request<ScheduleSettings>('/admin/settings/schedule', {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      }),
   },
   groups: {
     list: () => request<TeamsGroup[]>('/admin/groups'),

@@ -10,6 +10,9 @@ import { WorkPlanModule } from '../work-plan/work-plan.module';
 import { AdminModule } from '../admin/admin.module';
 import { GroupsModule } from '../groups/groups.module';
 import { GroupsController } from './groups.controller';
+import { SchedulerService } from './scheduler/scheduler.service';
+import { TeamDayService } from './scheduler/team-day.service';
+import { KeepAwakeService } from './scheduler/keep-awake.service';
 
 @Module({
   imports: [AttendanceModule, WorkPlanModule, AdminModule, GroupsModule],
@@ -19,6 +22,9 @@ import { GroupsController } from './groups.controller';
     BotHelper,
     WorkflowEngine,
     ActivityTrackerService,
+    SchedulerService,
+    TeamDayService,
+    KeepAwakeService,
     ...workflowHandlerProviders,
   ],
 })

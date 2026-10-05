@@ -67,6 +67,10 @@ export class SubmitLeaveHandler extends BaseActionHandler {
 
         if (managers && managers.length > 0) {
           const employeeName = context.activity.from.name || 'An employee';
+          const balance = await this.adminService.describeLeaveBalance(
+            leave.employeeId,
+            leaveType,
+          );
 
           for (const manager of managers) {
             if (!manager.teamsUserId) continue;
@@ -82,6 +86,7 @@ export class SubmitLeaveHandler extends BaseActionHandler {
                     leaveType,
                     describeLeavePeriod(leave),
                     reason,
+                    balance,
                   ),
                 ],
               },

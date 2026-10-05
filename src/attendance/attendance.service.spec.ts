@@ -1,7 +1,7 @@
 import { mockDeep, DeepMockProxy } from 'jest-mock-extended';
 import { PrismaClient } from '@prisma/client';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { AttendanceService } from './attendance.service';
+import { AttendanceService, autoCheckOutTime } from './attendance.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 describe('AttendanceService', () => {
@@ -210,6 +210,7 @@ describe('AttendanceService', () => {
         {
           id: 'att-1',
           checkIn,
+          employee: { shift: null },
           breaks: [
             // a finished 20 min break
             { id: 'b1', breakStart: checkIn, breakEnd: checkIn, duration: 20 },
@@ -250,6 +251,7 @@ describe('AttendanceService', () => {
         {
           id: 'att-1',
           checkIn,
+          employee: { shift: null },
           breaks: [
             { id: 'b2', breakStart: checkIn, breakEnd: null, duration: 0 },
           ],
@@ -259,6 +261,129 @@ describe('AttendanceService', () => {
 
       expect(await service.autoCheckOutStale(now)).toBe(0);
       expect(prisma.attendanceBreak.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('autoCheckOutTime (shift end)', () => {
+    const checkIn = new Date('2026-10-05T03:30:00Z'); // 09:00 IST
+    const shift = { startTime: '09:00', endTime: '18:00' };
+    const shiftEnd = new Date('2026-10-05T12:30:00Z'); // 18:00 IST
+    const midnight = new Date('2026-10-05T18:30:00Z');
+
+    it('uses midnight without a shift', () => {
+      expect(autoCheckOutTime(checkIn, [], null)).toEqual(midnight);
+    });
+
+    it("uses the end of the employee's shift", () => {
+      expect(autoCheckOutTime(checkIn, [], shift)).toEqual(shiftEnd);
+    });
+
+    it('moves past the shift end to cover breaks taken after it', () => {
+      const lateBreakEnd = new Date('2026-10-05T14:00:00Z'); // 19:30 IST
+      expect(
+        autoCheckOutTime(
+          checkIn,
+          [{ breakStart: shiftEnd, breakEnd: lateBreakEnd }],
+          shift,
+        ),
+      ).toEqual(lateBreakEnd);
+    });
+
+    it('falls back to midnight for a night shift or a check-in after the shift', () => {
+      expect(
+        autoCheckOutTime(checkIn, [], { startTime: '22:00', endTime: '06:00' }),
+      ).toEqual(midnight);
+      const lateCheckIn = new Date('2026-10-05T13:30:00Z'); // 19:00 IST
+      expect(autoCheckOutTime(lateCheckIn, [], shift)).toEqual(midnight);
+    });
+
+    it('closes a forgotten session at shift end in the sweep', async () => {
+      prisma.$transaction.mockImplementation((fn: any) => fn(prisma));
+      prisma.attendance.updateMany.mockResolvedValue({ count: 1 });
+      prisma.attendance.findMany.mockResolvedValue([
+        { id: 'att-1', checkIn, employee: { shift }, breaks: [] },
+      ] as any);
+
+      await service.autoCheckOutStale(new Date('2026-10-06T04:00:00Z'));
+
+      expect(prisma.attendance.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            checkOut: shiftEnd,
+            workingMinutes: 540,
+          }),
+        }),
+      );
+    });
+  });
+
+  describe('correctCheckOut', () => {
+    const checkIn = new Date('2026-10-05T03:30:00Z'); // 09:00 IST
+
+    beforeEach(() => {
+      prisma.$transaction.mockImplementation((fn: any) => fn(prisma));
+    });
+
+    it('recomputes worked time and clips breaks running past the new time', async () => {
+      prisma.attendance.findUnique.mockResolvedValue({
+        id: 'att-1',
+        checkIn,
+        status: 'checked_out',
+        breaks: [
+          {
+            id: 'b1',
+            breakStart: new Date('2026-10-05T07:30:00Z'), // 13:00 IST
+            breakEnd: new Date('2026-10-05T08:00:00Z'), // 13:30 IST
+            duration: 30,
+          },
+          {
+            id: 'b2',
+            breakStart: new Date('2026-10-05T12:00:00Z'), // 17:30 IST
+            breakEnd: new Date('2026-10-05T18:30:00Z'), // closed at midnight
+            duration: 390,
+          },
+        ],
+      } as any);
+
+      await service.correctCheckOut('att-1', '18:00');
+
+      const checkOut = new Date('2026-10-05T12:30:00Z');
+      expect(prisma.attendanceBreak.update).toHaveBeenCalledTimes(1);
+      expect(prisma.attendanceBreak.update).toHaveBeenCalledWith({
+        where: { id: 'b2' },
+        data: { breakEnd: checkOut, duration: 30 },
+      });
+      expect(prisma.attendance.update).toHaveBeenCalledWith({
+        where: { id: 'att-1' },
+        data: {
+          checkOut,
+          workingMinutes: 540 - 60,
+          breakMinutes: 60,
+          autoCheckedOut: false,
+        },
+      });
+    });
+
+    it('rejects a time before check-in or a session still open', async () => {
+      prisma.attendance.findUnique.mockResolvedValue({
+        id: 'att-1',
+        checkIn,
+        status: 'checked_out',
+        breaks: [],
+      } as any);
+      await expect(service.correctCheckOut('att-1', '08:00')).rejects.toThrow(
+        'after the check-in',
+      );
+
+      prisma.attendance.findUnique.mockResolvedValue({
+        id: 'att-1',
+        checkIn,
+        status: 'checked_in',
+        breaks: [],
+      } as any);
+      await expect(service.correctCheckOut('att-1', '18:00')).rejects.toThrow(
+        'finished session',
+      );
     });
   });
 

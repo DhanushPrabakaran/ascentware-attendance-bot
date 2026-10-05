@@ -90,9 +90,15 @@ export class TeamsAttendanceBot {
           context.activity.serviceUrl,
           context.activity.conversation?.tenantId,
         );
+        if (context.activity.conversation?.conversationType === 'personal') {
+          await this.adminService.rememberPersonalConversation(
+            context.activity.from?.id,
+            context.activity.conversation.id,
+          );
+        }
       } catch (e: any) {
         this.logger.warn(
-          `Failed to store bot service URL: ${e.message}`,
+          `Failed to store bot service URL / chat: ${e.message}`,
           TeamsAttendanceBot.name,
         );
       }

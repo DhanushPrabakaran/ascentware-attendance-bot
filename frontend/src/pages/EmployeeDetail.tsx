@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { CalendarOff, CheckCircle2, XCircle, User, Briefcase, Mail, Activity, ArrowLeft } from 'lucide-react';
+import { CalendarOff, CheckCircle2, XCircle, User, Briefcase, Mail, Activity, ArrowLeft, Download, Pencil } from 'lucide-react';
 import { api } from '../lib/api';
 import type { Employee, Attendance, Leave } from '../lib/types';
 import { DailyTasksPanel } from '../components/DailyTasksPanel';
 import { breakSummary, describeLeave, workedTime } from '../lib/format';
+import { LeaveBalanceCard } from '../components/LeaveBalanceCard';
+import { CorrectCheckOutModal } from '../components/CorrectCheckOutModal';
+import { ExportTimesheetModal } from '../components/ExportTimesheetModal';
 
 export default function EmployeeDetail() {
   const { id } = useParams();
@@ -13,6 +16,8 @@ export default function EmployeeDetail() {
   const [leaves, setLeaves] = useState<Leave[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedAttendanceId, setExpandedAttendanceId] = useState<string | null>(null);
+  const [correcting, setCorrecting] = useState<Attendance | null>(null);
+  const [exportOpen, setExportOpen] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -140,6 +145,12 @@ export default function EmployeeDetail() {
             <h2 className="text-base font-semibold text-secondary flex items-center">
               <Activity size={18} className="mr-2 text-primary" /> Attendance Log
             </h2>
+            <button
+              onClick={() => setExportOpen(true)}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-primaryHover"
+            >
+              <Download size={14} /> Export
+            </button>
           </div>
           <div className="p-5 flex-1 overflow-y-auto max-h-[400px]">
             {sortedAttendances.length === 0 ? (
@@ -170,6 +181,16 @@ export default function EmployeeDetail() {
                     </button>
                     {expandedAttendanceId === att.id && (
                       <div className="border-t border-borderBase">
+                        {att.checkOut && (
+                          <div className="px-4 pt-3">
+                            <button
+                              onClick={() => setCorrecting({ ...att, employee })}
+                              className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-primaryHover"
+                            >
+                              <Pencil size={12} /> Correct check-out time
+                            </button>
+                          </div>
+                        )}
                         <DailyTasksPanel tasks={att.dailyTasks} />
                       </div>
                     )}
@@ -214,6 +235,11 @@ export default function EmployeeDetail() {
           </div>
         </div>
       </div>
+
+      <LeaveBalanceCard employeeId={employee.id} refreshKey={leaves} />
+
+      <CorrectCheckOutModal attendance={correcting} onClose={() => setCorrecting(null)} onSaved={fetchData} />
+      <ExportTimesheetModal open={exportOpen} onClose={() => setExportOpen(false)} employeeId={employee.id} />
     </div>
   );
 }

@@ -4,7 +4,7 @@ import { HandlerResult } from '../interfaces/action-handler.interface';
 import { BaseActionHandler } from './base-action.handler';
 import { WorkPlanService } from '../../../work-plan/work-plan.service';
 import { AttendanceService } from '../../../attendance/attendance.service';
-import { PlanTasksCard } from '../../cards/PlanTasksCard';
+import { MAX_PLAN_TASKS, PlanTasksCard } from '../../cards/PlanTasksCard';
 
 @Injectable()
 export class EditPlanHandler extends BaseActionHandler {
@@ -28,7 +28,7 @@ export class EditPlanHandler extends BaseActionHandler {
     const previousValues: any = {};
     existingTasks.forEach((task, index) => {
       const i = index + 1;
-      if (i > 5) return; // Adaptive card supports up to 5 tasks
+      if (i > MAX_PLAN_TASKS) return;
       previousValues[`taskName_${i}`] = task.taskName;
       previousValues[`priority_${i}`] = task.priority;
       previousValues[`estimatedMinutes_${i}`] =

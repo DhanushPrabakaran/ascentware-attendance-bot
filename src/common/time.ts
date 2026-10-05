@@ -109,3 +109,46 @@ export function describeLeavePeriod(leave: {
   const end = formatDate(new Date(leave.endDate));
   return start === end ? start : `${start} – ${end}`;
 }
+
+/** "2026-10-05" - the calendar day `instant` falls on in `timeZone`. */
+export function dateKey(instant: Date, timeZone = APP_TIMEZONE): string {
+  return calendarDateOf(instant, timeZone).toISOString().slice(0, 10);
+}
+
+/** ISO weekday (1 = Monday ... 7 = Sunday) of `instant` in `timeZone`. */
+export function isoWeekday(instant: Date, timeZone = APP_TIMEZONE): number {
+  const day = calendarDateOf(instant, timeZone).getUTCDay();
+  return day === 0 ? 7 : day;
+}
+
+/** The instant a company wall-clock time ("HH:mm") occurs on the same day as `day`
+ *  (any instant on that day), or null for a malformed time. */
+export function atClockTime(
+  day: Date,
+  clock: string,
+  timeZone = APP_TIMEZONE,
+): Date | null {
+  const minutes = parseClockTime(clock);
+  if (minutes === null) return null;
+  return new Date(startOfDay(day, timeZone).getTime() + minutes * 60000);
+}
+
+/** "09:05" - the company wall-clock time of `instant`. */
+export function formatClock(instant: Date, timeZone = APP_TIMEZONE): string {
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone,
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).format(instant);
+}
+
+/** "Mon, 5 Oct" - the company-timezone day of `instant`. */
+export function formatDay(instant: Date, timeZone = APP_TIMEZONE): string {
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone,
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+  }).format(instant);
+}

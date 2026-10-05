@@ -23,17 +23,21 @@ enum NotificationType {
   LEAVE_APPLIED
   LEAVE_APPROVED
   LEAVE_REJECTED
+  LEAVE_CANCELLED
 }
 
 model Employee {
-  id            String   @id @default(uuid())
-  name          String
-  email         String   @unique
-  teamsUserId   String?  @unique
-  role          Role     @default(EMPLOYEE)
-  managerEmails String[] // Array of emails this person reports to
-  hrEmail       String? // Assigned HR business partner's email, set directly by Admin/HR
-  passwordHash  String? // Web dashboard login; null means the account can't log in yet
+  id                  String   @id @default(uuid())
+  name                String
+  email               String   @unique
+  teamsUserId         String?  @unique
+  // The bot's 1:1 chat with this person, captured from their messages - lets reminders
+  // and auto check-out notices be sent proactively. Null until they first message the bot.
+  teamsConversationId String?
+  role                Role     @default(EMPLOYEE)
+  managerEmails       String[] // Array of emails this person reports to
+  hrEmail             String? // Assigned HR business partner's email, set directly by Admin/HR
+  passwordHash        String? // Web dashboard login; null means the account can't log in yet
 
   isActive      Boolean   @default(true)
   deactivatedAt DateTime?
@@ -107,6 +111,32 @@ model Settings {
   // messages (e.g. a group's test message) without an active bot turn.
   botServiceUrl String?
   botTenantId   String?
+
+  // Reminders (1:1 chat) and group digests. Times are company wall clock "HH:mm".
+  // Check-in/out reminders use the employee's shift times when they have a shift.
+  remindersEnabled     Boolean @default(true)
+  checkInReminderTime  String  @default("10:00")
+  checkOutReminderTime String  @default("19:00")
+  digestsEnabled       Boolean @default(true)
+  morningDigestTime    String  @default("10:30")
+  eveningDigestTime    String  @default("20:00")
+  // ISO weekdays (1 = Mon ... 7 = Sun) reminders and digests run on.
+  workingDays          Int[]   @default([1, 2, 3, 4, 5])
+}
+
+/// One row per reminder/digest already sent, keyed like "checkin:<employeeId>:2026-10-05",
+/// so a send happens once even across restarts or several instances.
+model ScheduledSend {
+  key       String   @id
+  createdAt DateTime @default(now())
+}
+
+/// Yearly allowance per leave type. Types without a policy have no limit.
+model LeavePolicy {
+  leaveType  String @id
+  annualDays Int
+
+  updatedAt DateTime @updatedAt
 }
 
 model Attendance {
@@ -149,6 +179,7 @@ model DailyTask {
   attendance       Attendance @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
   date             DateTime   @default(now()) @db.Date
   taskName         String // Can be text or a link
+  position         Int        @default(0) // order the employee entered the tasks in
   priority         String     @default("normal")
   estimatedMinutes Int        @default(0)
   timeTakenMinutes Int        @default(0)

@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { RequestHandler } from 'express';
+import type { Activity } from 'botbuilder';
 import {
   AgentApplication,
   MemoryStorage,
@@ -75,13 +76,19 @@ export class BotService {
   }
 
   /**
-   * Proactively posts a message into a Teams conversation outside of a bot turn - used
-   * by the Groups screen's "send test message". Needs the Teams service URL, which
-   * AdminService.rememberBotEndpoint captures from incoming activities; before the bot
-   * has received any, the global Teams endpoint is used. Throws if Teams rejects the
-   * send (bot not in the chat, wrong ID, ...) so the caller can surface it.
+   * Proactively posts a message into a Teams conversation outside of a bot turn - the
+   * Groups screen's "send test message", reminders and digests. A personal conversation
+   * is the bot's 1:1 chat with someone (Employee.teamsConversationId). Needs the Teams
+   * service URL, which AdminService.rememberBotEndpoint captures from incoming
+   * activities; before the bot has received any, the global Teams endpoint is used.
+   * Throws if Teams rejects the send (bot not in the chat, wrong ID, ...) so the caller
+   * can surface it.
    */
-  async sendToConversation(conversationId: string, text: string) {
+  async sendToConversation(
+    conversationId: string,
+    message: string | Partial<Activity>,
+    opts: { personal?: boolean } = {},
+  ) {
     const appId =
       process.env.CLIENT_ID ||
       process.env.CLIENTID ||
@@ -100,8 +107,8 @@ export class BotService {
       agent: botAccount,
       conversation: {
         id: conversationId,
-        isGroup: true,
-        conversationType: 'groupChat',
+        isGroup: !opts.personal,
+        conversationType: opts.personal ? 'personal' : 'groupChat',
         tenantId: endpoint.tenantId || undefined,
       },
     };
@@ -110,7 +117,7 @@ export class BotService {
       appId,
       reference,
       async (context) => {
-        await context.sendActivity(text);
+        await context.sendActivity(message as any);
       },
     );
   }

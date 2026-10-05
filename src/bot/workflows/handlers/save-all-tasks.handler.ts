@@ -5,7 +5,7 @@ import { HandlerResult } from '../interfaces/action-handler.interface';
 import { BaseActionHandler } from './base-action.handler';
 import { WorkPlanService } from '../../../work-plan/work-plan.service';
 import { CardBuilder } from '../../cards/CardBuilder';
-import { PlanTasksCard } from '../../cards/PlanTasksCard';
+import { MAX_PLAN_TASKS, PlanTasksCard } from '../../cards/PlanTasksCard';
 import { PlanSummaryCard } from '../../cards/PlanSummaryCard';
 import { BotHelper } from '../../BotHelper';
 import { formatDuration } from '../../../common/time';
@@ -28,7 +28,7 @@ export class SaveAllTasksHandler extends BaseActionHandler {
     const tasks = [];
     let totalEstimatedMinutes = 0;
 
-    for (let i = 1; i <= 5; i++) {
+    for (let i = 1; i <= MAX_PLAN_TASKS; i++) {
       const tName = value[`taskName_${i}`];
       if (tName && tName.trim() !== '') {
         const estimatedMinutes =

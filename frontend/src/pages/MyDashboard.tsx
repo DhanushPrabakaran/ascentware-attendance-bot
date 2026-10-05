@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Download, Plus } from 'lucide-react';
 import { api, ApiError } from '../lib/api';
 import type { Attendance, Leave } from '../lib/types';
 import { useAuth } from '../lib/auth';
@@ -8,6 +8,9 @@ import { Badge, statusToVariant } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
 import { DailyTasksPanel } from '../components/DailyTasksPanel';
+import { LeaveBalanceCard } from '../components/LeaveBalanceCard';
+import { CorrectCheckOutModal } from '../components/CorrectCheckOutModal';
+import { ExportTimesheetModal } from '../components/ExportTimesheetModal';
 import { breakSummary, describeLeave, formatMinutes, workedTime } from '../lib/format';
 
 type LeaveMode = 'days' | 'hours';
@@ -41,6 +44,27 @@ export default function MyDashboard() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expandedAttendanceId, setExpandedAttendanceId] = useState<string | null>(null);
+  const [correcting, setCorrecting] = useState<Attendance | null>(null);
+  const [exportOpen, setExportOpen] = useState(false);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
+
+  const today = new Date().toISOString().slice(0, 10);
+  // Pending any time; approved only until it starts (after that, ask an admin).
+  const canCancel = (l: Leave) =>
+    l.status === 'PENDING' || (l.status === 'APPROVED' && l.startDate.slice(0, 10) >= today);
+
+  const cancelLeave = async (l: Leave) => {
+    if (!window.confirm(`Cancel your ${l.leaveType} leave (${describeLeave(l)})?`)) return;
+    setCancellingId(l.id);
+    try {
+      await api.leaves.cancel(l.id);
+      await load();
+    } catch (err) {
+      alert(err instanceof ApiError ? err.message : 'Failed to cancel leave');
+    } finally {
+      setCancellingId(null);
+    }
+  };
 
   const load = async () => {
     if (!user) return;
@@ -105,9 +129,16 @@ export default function MyDashboard() {
         <span>
           {workedTime(a)}
           {a.autoCheckedOut && (
-            <span className="ml-2" title="You didn't check out - closed automatically at midnight">
-              <Badge variant="warning">Auto</Badge>
-            </span>
+            <button
+              className="ml-2"
+              title="You didn't check out - closed automatically. Click to enter the real time."
+              onClick={(e) => {
+                e.stopPropagation();
+                setCorrecting(a);
+              }}
+            >
+              <Badge variant="warning">Auto · Fix</Badge>
+            </button>
           )}
         </span>
       ),
@@ -131,6 +162,20 @@ export default function MyDashboard() {
     },
     { header: 'Reason', render: (l) => <span className="text-secondary/70">{l.reason}</span> },
     { header: 'Status', render: (l) => <Badge variant={statusToVariant(l.status)}>{l.status}</Badge> },
+    {
+      header: '',
+      className: 'px-6 py-4 whitespace-nowrap text-right text-sm',
+      render: (l) =>
+        canCancel(l) ? (
+          <button
+            onClick={() => cancelLeave(l)}
+            disabled={cancellingId === l.id}
+            className="text-red-400 hover:text-red-300 font-medium disabled:opacity-50"
+          >
+            {cancellingId === l.id ? 'Cancelling...' : 'Cancel'}
+          </button>
+        ) : null,
+    },
   ];
 
   if (loading) return <div className="p-8 text-secondary/60 animate-pulse">Loading your dashboard...</div>;
@@ -146,11 +191,19 @@ export default function MyDashboard() {
             Your attendance history and leave requests.
           </p>
         </div>
-        <Button onClick={() => setModalOpen(true)}>
-          <Plus size={16} />
-          Apply for Leave
-        </Button>
+        <div className="flex gap-3">
+          <Button variant="secondary" onClick={() => setExportOpen(true)}>
+            <Download size={16} />
+            Timesheet
+          </Button>
+          <Button onClick={() => setModalOpen(true)}>
+            <Plus size={16} />
+            Apply for Leave
+          </Button>
+        </div>
       </div>
+
+      <LeaveBalanceCard refreshKey={leaves} />
 
       <div>
         <h3 className="text-lg font-semibold text-secondary mb-3">My Leave Requests</h3>
@@ -175,6 +228,9 @@ export default function MyDashboard() {
           renderExpanded={(a) => <DailyTasksPanel tasks={a.dailyTasks} />}
         />
       </div>
+
+      <CorrectCheckOutModal attendance={correcting} onClose={() => setCorrecting(null)} onSaved={load} />
+      <ExportTimesheetModal open={exportOpen} onClose={() => setExportOpen(false)} employeeId={user?.id} />
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Apply for Leave">
         {error && (

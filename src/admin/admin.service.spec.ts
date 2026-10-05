@@ -11,6 +11,7 @@ function emp(overrides: Partial<Employee>): Employee {
     name: 'Name',
     email: 'name@x.com',
     teamsUserId: null,
+    teamsConversationId: null,
     role: Role.EMPLOYEE,
     managerEmails: [],
     hrEmail: null,
@@ -210,6 +211,7 @@ describe('AdminService', () => {
         employee: emp({ id: 'e1' }),
       }));
       prisma.employee.findUnique.mockResolvedValue(null);
+      prisma.leave.findMany.mockResolvedValue([]);
     });
 
     it('stores times and duration, and pins endDate to startDate', async () => {
@@ -263,6 +265,203 @@ describe('AdminService', () => {
           endDate: new Date('2026-10-01T00:00:00Z'),
         }),
       ).rejects.toThrow('End date must be on or after start date');
+    });
+
+    it('rejects a request overlapping a full-day leave', async () => {
+      prisma.leave.findMany.mockResolvedValue([
+        {
+          ...base,
+          leaveType: 'Sick',
+          status: 'APPROVED',
+          startTime: null,
+          endTime: null,
+          durationMinutes: null,
+        },
+      ] as any);
+      await expect(
+        service.createLeaveForEmployee('e1', {
+          ...base,
+          startTime: '10:00',
+          endTime: '11:00',
+        }),
+      ).rejects.toThrow('overlaps your approved Sick leave');
+      expect(prisma.leave.create).not.toHaveBeenCalled();
+    });
+
+    it('allows two hourly leaves on the same day when the times do not intersect', async () => {
+      const existing = {
+        ...base,
+        status: 'PENDING',
+        startTime: '10:00',
+        endTime: '12:00',
+        durationMinutes: 120,
+      };
+      prisma.leave.findMany.mockResolvedValue([existing] as any);
+
+      await service.createLeaveForEmployee('e1', {
+        ...base,
+        startTime: '12:00',
+        endTime: '13:00',
+      });
+      expect(prisma.leave.create).toHaveBeenCalled();
+
+      await expect(
+        service.createLeaveForEmployee('e1', {
+          ...base,
+          startTime: '11:00',
+          endTime: '13:00',
+        }),
+      ).rejects.toThrow('overlaps your pending Permission leave');
+    });
+  });
+
+  describe('cancelLeave', () => {
+    const me: JwtPayload = {
+      sub: 'e1',
+      email: 'name@x.com',
+      role: Role.EMPLOYEE,
+    } as JwtPayload;
+    const leave = (overrides: any) => ({
+      id: 'l1',
+      employeeId: 'e1',
+      leaveType: 'Sick',
+      status: 'PENDING',
+      startDate: new Date('2099-01-05T00:00:00Z'),
+      endDate: new Date('2099-01-05T00:00:00Z'),
+      employee: emp({ id: 'e1', hrEmail: null }),
+      ...overrides,
+    });
+
+    beforeEach(() => {
+      prisma.leave.update.mockResolvedValue({} as any);
+      prisma.employee.findUnique.mockResolvedValue(emp({ id: 'e1' }));
+      prisma.employee.findMany.mockResolvedValue([]);
+    });
+
+    it("cancels the employee's own pending leave", async () => {
+      prisma.leave.findUnique.mockResolvedValue(leave({}));
+      await service.cancelLeave('l1', me);
+      expect(prisma.leave.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { status: 'CANCELLED' } }),
+      );
+    });
+
+    it("refuses someone else's leave, a decided one, or an approved one already started", async () => {
+      prisma.leave.findUnique.mockResolvedValue(leave({ employeeId: 'other' }));
+      await expect(service.cancelLeave('l1', me)).rejects.toThrow(
+        'only cancel your own',
+      );
+
+      prisma.leave.findUnique.mockResolvedValue(leave({ status: 'REJECTED' }));
+      await expect(service.cancelLeave('l1', me)).rejects.toThrow(
+        'already rejected',
+      );
+
+      prisma.leave.findUnique.mockResolvedValue(
+        leave({
+          status: 'APPROVED',
+          startDate: new Date('2020-01-01T00:00:00Z'),
+        }),
+      );
+      await expect(service.cancelLeave('l1', me)).rejects.toThrow(
+        'only be cancelled by an admin',
+      );
+      expect(prisma.leave.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('getLeaveBalance', () => {
+    it('counts working days of full-day leave and hours of hourly leave separately', async () => {
+      prisma.settings.findUnique.mockResolvedValue({
+        id: 'default',
+        workingDays: [1, 2, 3, 4, 5],
+      } as any);
+      prisma.leavePolicy.findMany.mockResolvedValue([
+        { leaveType: 'Sick', annualDays: 12 },
+      ] as any);
+      prisma.leave.findMany.mockResolvedValue([
+        // Fri 2 Oct - Mon 5 Oct 2026: 2 working days
+        {
+          leaveType: 'Sick',
+          status: 'APPROVED',
+          startDate: new Date('2026-10-02T00:00:00Z'),
+          endDate: new Date('2026-10-05T00:00:00Z'),
+          durationMinutes: null,
+        },
+        {
+          leaveType: 'Sick',
+          status: 'PENDING',
+          startDate: new Date('2026-10-07T00:00:00Z'),
+          endDate: new Date('2026-10-07T00:00:00Z'),
+          durationMinutes: null,
+        },
+        {
+          leaveType: 'Permission',
+          status: 'APPROVED',
+          startDate: new Date('2026-10-08T00:00:00Z'),
+          endDate: new Date('2026-10-08T00:00:00Z'),
+          durationMinutes: 90,
+        },
+      ] as any);
+
+      const balance = await service.getLeaveBalance('e1', 2026);
+
+      expect(balance.types).toEqual([
+        expect.objectContaining({
+          leaveType: 'Permission',
+          annualDays: null,
+          usedMinutes: 90,
+          usedDays: 0,
+          remainingDays: null,
+        }),
+        expect.objectContaining({
+          leaveType: 'Sick',
+          annualDays: 12,
+          usedDays: 2,
+          pendingDays: 1,
+          remainingDays: 10,
+        }),
+      ]);
+    });
+  });
+
+  describe('exportAttendancesCsv', () => {
+    it('writes one quoted row per session and defuses formulas', async () => {
+      prisma.attendance.findMany.mockResolvedValue([
+        {
+          checkIn: new Date('2026-10-05T03:30:00Z'),
+          checkOut: new Date('2026-10-05T12:30:00Z'),
+          status: 'checked_out',
+          autoCheckedOut: true,
+          workingMinutes: 480,
+          breakMinutes: 60,
+          permissionMinutes: 0,
+          employee: { name: '=HYPERLINK("x")', email: 'a@x.com' },
+          breaks: [
+            { type: 'lunch', duration: 45 },
+            { type: 'break', duration: 15 },
+          ],
+          dailyTasks: [{ status: 'completed' }, { status: 'blocked' }],
+        },
+      ] as any);
+
+      const csv = await service.exportAttendancesCsv(
+        'ALL',
+        '2026-10-01',
+        '2026-10-31',
+      );
+      const lines = csv.replace('\uFEFF', '').trim().split('\r\n');
+
+      expect(lines).toHaveLength(2);
+      expect(lines[1]).toBe(
+        '"2026-10-05","\'=HYPERLINK(""x"")","a@x.com","09:00","18:00","Yes","8.00","0.25","0.75","0.00","2","1"',
+      );
+    });
+
+    it("refuses another employee's export outside the requester's scope", async () => {
+      await expect(
+        service.exportAttendancesCsv(['e1'], '2026-10-01', '2026-10-31', 'e2'),
+      ).rejects.toThrow('cannot export');
     });
   });
 });

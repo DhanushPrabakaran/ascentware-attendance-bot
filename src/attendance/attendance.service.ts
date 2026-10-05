@@ -4,7 +4,12 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { calendarDateOf, nextMidnight, startOfDay } from '../common/time';
+import {
+  atClockTime,
+  calendarDateOf,
+  nextMidnight,
+  startOfDay,
+} from '../common/time';
 
 export type BreakType = 'break' | 'lunch';
 const OPEN_STATUSES = ['checked_in', 'on_break'];
@@ -107,11 +112,11 @@ export class AttendanceService {
   }
 
   /**
-   * Closes every session still open from a previous day (in the company timezone) at
-   * the midnight that ended its day - so the stored check-out is the same whenever
-   * this runs: from the periodic AutoCheckoutService sweep, or lazily from
-   * getStatus/checkIn if the server was asleep at midnight (Render free tier). An open
-   * break is closed at that midnight too. Returns how many sessions were closed.
+   * Closes every session still open from a previous day (in the company timezone) -
+   * from the periodic sweep, or lazily from getStatus/checkIn if the server was asleep
+   * at midnight (Render free tier). The check-out recorded is the same whenever this
+   * runs: see autoCheckOutTime. An open break is closed at that time too. Returns how
+   * many sessions were closed.
    */
   async autoCheckOutStale(now = new Date(), employeeId?: string) {
     const stale = await this.prisma.attendance.findMany({
@@ -120,18 +125,23 @@ export class AttendanceService {
         checkIn: { lt: startOfDay(now) },
         ...(employeeId ? { employeeId } : {}),
       },
-      include: { breaks: true },
+      include: { breaks: true, employee: { include: { shift: true } } },
     });
 
     let closed = 0;
     for (const attendance of stale) {
-      const cutoff = nextMidnight(attendance.checkIn);
+      const cutoff = autoCheckOutTime(
+        attendance.checkIn,
+        attendance.breaks,
+        attendance.employee.shift,
+      );
       let breakMinutes = 0;
       const openBreaks = attendance.breaks.filter((b) => !b.breakEnd);
       for (const b of attendance.breaks) {
         breakMinutes += b.breakEnd
           ? b.duration
           : minutesBetween(b.breakStart, cutoff);
+        // minutesBetween floors at 0, so a break opened after the cut-off counts as 0.
       }
       const workingMinutes = Math.max(
         0,
@@ -165,6 +175,69 @@ export class AttendanceService {
       if (updated) closed++;
     }
     return closed;
+  }
+
+  /**
+   * Fixes the check-out time of a finished session - the employee answering the
+   * auto check-out notice, or an admin/manager on the web. `clock` is company wall
+   * clock "HH:mm" on the session's own day. Breaks are clipped to the new time and the
+   * worked/break minutes recomputed; the session is no longer flagged as automatic.
+   */
+  async correctCheckOut(attendanceId: string, clock: string) {
+    const attendance = await this.prisma.attendance.findUnique({
+      where: { id: attendanceId },
+      include: { breaks: true },
+    });
+    if (!attendance) throw new NotFoundException('Attendance not found');
+    if (attendance.status !== 'checked_out') {
+      throw new BadRequestException(
+        'Only a finished session can have its check-out corrected',
+      );
+    }
+    const checkOut = atClockTime(attendance.checkIn, clock);
+    if (!checkOut)
+      throw new BadRequestException('Time must be in HH:mm format');
+    if (checkOut <= attendance.checkIn) {
+      throw new BadRequestException(
+        'Check-out must be after the check-in time',
+      );
+    }
+    if (checkOut > nextMidnight(attendance.checkIn)) {
+      throw new BadRequestException('Check-out must be on the same day');
+    }
+
+    let breakMinutes = 0;
+    const clipped: { id: string; breakEnd: Date; duration: number }[] = [];
+    for (const b of attendance.breaks) {
+      const end = b.breakEnd && b.breakEnd < checkOut ? b.breakEnd : checkOut;
+      const duration = minutesBetween(b.breakStart, end);
+      breakMinutes += duration;
+      if (!b.breakEnd || b.breakEnd > checkOut) {
+        clipped.push({ id: b.id, breakEnd: end, duration });
+      }
+    }
+    const workingMinutes = Math.max(
+      0,
+      minutesBetween(attendance.checkIn, checkOut) - breakMinutes,
+    );
+
+    return this.prisma.$transaction(async (tx) => {
+      for (const b of clipped) {
+        await tx.attendanceBreak.update({
+          where: { id: b.id },
+          data: { breakEnd: b.breakEnd, duration: b.duration },
+        });
+      }
+      return tx.attendance.update({
+        where: { id: attendanceId },
+        data: {
+          checkOut,
+          workingMinutes,
+          breakMinutes,
+          autoCheckedOut: false,
+        },
+      });
+    });
   }
 
   /** Total approved hourly leave ("permission") the employee has today - pre-fills the
@@ -242,6 +315,36 @@ export class AttendanceService {
 
     return updatedBreak;
   }
+}
+
+/**
+ * When a forgotten session is closed: the end of the employee's shift that day, so a
+ * missed check-out doesn't credit hours until midnight - pushed later if they were
+ * still taking breaks after it, and never past midnight. Without a shift (or with a
+ * night shift that crosses midnight), or if they checked in after their shift ended,
+ * it's midnight.
+ */
+export function autoCheckOutTime(
+  checkIn: Date,
+  breaks: { breakStart: Date; breakEnd: Date | null }[],
+  shift?: { startTime: string; endTime: string } | null,
+): Date {
+  const midnight = nextMidnight(checkIn);
+  if (!shift) return midnight;
+  const shiftStart = atClockTime(checkIn, shift.startTime);
+  const shiftEnd = atClockTime(checkIn, shift.endTime);
+  if (!shiftStart || !shiftEnd || shiftEnd <= shiftStart) return midnight;
+  if (shiftEnd <= checkIn) return midnight;
+
+  let closeAt = shiftEnd.getTime();
+  for (const b of breaks) {
+    closeAt = Math.max(
+      closeAt,
+      new Date(b.breakStart).getTime(),
+      b.breakEnd ? new Date(b.breakEnd).getTime() : 0,
+    );
+  }
+  return new Date(Math.min(closeAt, midnight.getTime()));
 }
 
 function minutesBetween(from: Date, to: Date) {

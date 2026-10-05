@@ -1,12 +1,16 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Calendar as CalendarIcon, Filter, Search } from 'lucide-react';
+import { Calendar as CalendarIcon, Download, Filter, Pencil, Search } from 'lucide-react';
 import { api } from '../lib/api';
 import type { Attendance as AttendanceRecord } from '../lib/types';
 import { DataList, type DataListColumn } from '../components/ui/DataList';
 import { Pagination } from '../components/ui/Pagination';
 import { Badge } from '../components/ui/Badge';
 import { breakSummary, workedTime } from '../lib/format';
+import { useAuth } from '../lib/auth';
+import { Button } from '../components/ui/Button';
+import { CorrectCheckOutModal } from '../components/CorrectCheckOutModal';
+import { ExportTimesheetModal } from '../components/ExportTimesheetModal';
 
 const PAGE_SIZE = 25;
 
@@ -14,6 +18,14 @@ export default function Attendance() {
   const [attendances, setAttendances] = useState<AttendanceRecord[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
+  const { user } = useAuth();
+  const [correcting, setCorrecting] = useState<AttendanceRecord | null>(null);
+  const [exportOpen, setExportOpen] = useState(false);
+
+  // Others' days can be fixed by whoever sees them (the server checks); your own only
+  // when it was closed automatically.
+  const canCorrect = (a: AttendanceRecord) =>
+    !!a.checkOut && (a.employeeId !== user?.id || !!a.autoCheckedOut || user?.role === 'ADMIN');
 
   const fetchAttendances = async () => {
     const result = await api.attendance.list({ page, pageSize: PAGE_SIZE });
@@ -74,9 +86,19 @@ export default function Attendance() {
         <span>
           {formatTime(a.checkOut)}
           {a.autoCheckedOut && (
-            <span className="ml-2" title="Not checked out - closed automatically at midnight">
+            <span className="ml-2" title="Not checked out - closed automatically">
               <Badge variant="warning">Auto</Badge>
             </span>
+          )}
+          {canCorrect(a) && (
+            <button
+              onClick={() => setCorrecting(a)}
+              title="Correct check-out time"
+              aria-label={`Correct check-out time for ${a.employee?.name ?? 'this day'}`}
+              className="ml-2 align-middle text-primary hover:text-primaryHover"
+            >
+              <Pencil size={14} />
+            </button>
           )}
         </span>
       ),
@@ -101,6 +123,10 @@ export default function Attendance() {
           <button className="bg-surface border border-borderBase p-2 rounded-lg text-secondary/70 hover:text-secondary hover:bg-surfaceHover transition-colors">
             <Filter className="h-5 w-5" />
           </button>
+          <Button variant="secondary" onClick={() => setExportOpen(true)}>
+            <Download size={16} />
+            Export
+          </Button>
         </div>
       </div>
 
@@ -111,6 +137,13 @@ export default function Attendance() {
         emptyMessage="No attendance records found."
       />
       <Pagination page={page} pageSize={PAGE_SIZE} total={total} onPageChange={setPage} />
+
+      <CorrectCheckOutModal
+        attendance={correcting}
+        onClose={() => setCorrecting(null)}
+        onSaved={fetchAttendances}
+      />
+      <ExportTimesheetModal open={exportOpen} onClose={() => setExportOpen(false)} />
     </div>
   );
 }

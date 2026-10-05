@@ -15,6 +15,7 @@ import {
   EndBreakHandler,
   CheckOutHandler,
   SubmitReviewHandler,
+  CorrectCheckOutHandler,
 } from './handlers';
 import * as workflowConfig from './workflow.config.json';
 
@@ -37,6 +38,7 @@ export class WorkflowEngine {
     endBreakHandler: EndBreakHandler,
     checkOutHandler: CheckOutHandler,
     submitReviewHandler: SubmitReviewHandler,
+    correctCheckOutHandler: CorrectCheckOutHandler,
   ) {
     this.handlers.set('CheckInHandler', checkInHandler);
     this.handlers.set('ApplyLeaveHandler', applyLeaveHandler);
@@ -52,6 +54,7 @@ export class WorkflowEngine {
     this.handlers.set('EndBreakHandler', endBreakHandler);
     this.handlers.set('CheckOutHandler', checkOutHandler);
     this.handlers.set('SubmitReviewHandler', submitReviewHandler);
+    this.handlers.set('CorrectCheckOutHandler', correctCheckOutHandler);
   }
 
   getHandlerForAction(actionName: string): IActionHandler {

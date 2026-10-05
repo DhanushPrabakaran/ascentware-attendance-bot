@@ -9,8 +9,17 @@ import { LeaveStatus, NotificationType, Role, Employee } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import { NotificationsService } from '../notifications/notifications.service';
+import { TASK_ORDER } from '../work-plan/work-plan.service';
 
-import { describeLeavePeriod, parseClockTime } from '../common/time';
+import {
+  calendarDateOf,
+  dateKey,
+  describeLeavePeriod,
+  formatClock,
+  nextMidnight,
+  parseClockTime,
+  startOfDay,
+} from '../common/time';
 
 interface LeaveParams {
   leaveType: string;
@@ -60,6 +69,46 @@ export class AdminService {
       data: { botServiceUrl: serviceUrl, botTenantId: tenantId ?? null },
     });
     this.lastBotEndpoint = key;
+  }
+
+  private knownPersonalChats = new Map<string, string>();
+
+  /**
+   * Remembers the bot's 1:1 chat with a Teams user (from a message in that chat) so
+   * reminders and notices can be sent to them proactively later. Cached in memory so
+   * it's one write per user per process, not one per message.
+   */
+  async rememberPersonalConversation(
+    teamsUserId?: string,
+    conversationId?: string,
+  ) {
+    if (!teamsUserId || !conversationId) return;
+    if (this.knownPersonalChats.get(teamsUserId) === conversationId) return;
+    await this.prisma.employee.updateMany({
+      where: {
+        teamsUserId,
+        OR: [
+          { teamsConversationId: null },
+          { teamsConversationId: { not: conversationId } },
+        ],
+      },
+      data: { teamsConversationId: conversationId },
+    });
+    this.knownPersonalChats.set(teamsUserId, conversationId);
+  }
+
+  /** Schedule settings for reminders and digests (the Groups screen edits them). */
+  async updateScheduleSettings(data: {
+    remindersEnabled?: boolean;
+    checkInReminderTime?: string;
+    checkOutReminderTime?: string;
+    digestsEnabled?: boolean;
+    morningDigestTime?: string;
+    eveningDigestTime?: string;
+    workingDays?: number[];
+  }) {
+    await this.getSettings();
+    return this.prisma.settings.update({ where: { id: 'default' }, data });
   }
 
   async getBotEndpoint() {
@@ -476,8 +525,44 @@ export class AdminService {
     };
   }
 
+  /** Rejects a request that clashes with one of the employee's pending/approved leaves:
+   *  any day in common, unless both are hourly and their times don't intersect. */
+  private async assertNoOverlap(
+    employeeId: string,
+    leave: {
+      startDate: Date;
+      endDate: Date;
+      startTime: string | null;
+      endTime: string | null;
+    },
+  ) {
+    const existing = await this.prisma.leave.findMany({
+      where: {
+        employeeId,
+        status: { in: [LeaveStatus.PENDING, LeaveStatus.APPROVED] },
+        startDate: { lte: leave.endDate },
+        endDate: { gte: leave.startDate },
+      },
+    });
+    const clash = existing.find((other) => {
+      if (!leave.startTime || !other.startTime) return true;
+      const aFrom = parseClockTime(leave.startTime)!;
+      const aTo = parseClockTime(leave.endTime!)!;
+      const bFrom = parseClockTime(other.startTime);
+      const bTo = parseClockTime(other.endTime || '');
+      if (bFrom === null || bTo === null) return true;
+      return aFrom < bTo && bFrom < aTo;
+    });
+    if (clash) {
+      throw new BadRequestException(
+        `This overlaps your ${clash.status.toLowerCase()} ${clash.leaveType} leave (${describeLeavePeriod(clash)})`,
+      );
+    }
+  }
+
   async createLeaveForEmployee(employeeId: string, params: LeaveParams) {
     const data = this.normalizeLeavePeriod(params);
+    await this.assertNoOverlap(employeeId, data);
     const leave = await this.prisma.leave.create({
       data: { employeeId, ...data },
       include: { employee: true },
@@ -511,6 +596,10 @@ export class AdminService {
   }
 
   async updateLeaveStatus(id: string, status: LeaveStatus) {
+    const current = await this.prisma.leave.findUnique({ where: { id } });
+    if (current?.status === LeaveStatus.CANCELLED) {
+      throw new BadRequestException('This leave was cancelled by the employee');
+    }
     const leave = await this.prisma.leave.update({
       where: { id },
       data: { status },
@@ -546,6 +635,170 @@ export class AdminService {
     return leave;
   }
 
+  /**
+   * The employee withdraws their own request - while pending, or once approved as long
+   * as it hasn't started yet (an admin can cancel any). Managers and HR are told.
+   */
+  async cancelLeave(id: string, requester: JwtPayload) {
+    const leave = await this.getLeaveById(id);
+    if (!leave) throw new NotFoundException('Leave not found');
+    const isAdmin = requester.role === Role.ADMIN;
+    if (leave.employeeId !== requester.sub && !isAdmin) {
+      throw new ForbiddenException('You can only cancel your own leave');
+    }
+    if (
+      leave.status !== LeaveStatus.PENDING &&
+      leave.status !== LeaveStatus.APPROVED
+    ) {
+      throw new BadRequestException(
+        `This leave is already ${leave.status.toLowerCase()}`,
+      );
+    }
+    if (
+      leave.status === LeaveStatus.APPROVED &&
+      !isAdmin &&
+      leave.startDate < calendarDateOf(new Date())
+    ) {
+      throw new BadRequestException(
+        'An approved leave that has already started can only be cancelled by an admin',
+      );
+    }
+
+    const updated = await this.prisma.leave.update({
+      where: { id },
+      data: { status: LeaveStatus.CANCELLED },
+      include: { employee: true },
+    });
+
+    const managers = await this.getManagersForEmployee(leave.employeeId);
+    const recipientIds = managers.map((m) => m.id);
+    recipientIds.push(
+      ...(await this.resolveHrRecipientId(leave.employee.hrEmail)),
+    );
+    await this.notifications.createMany(
+      recipientIds.filter((r) => r !== requester.sub),
+      NotificationType.LEAVE_CANCELLED,
+      'Leave cancelled',
+      `${leave.employee.name} cancelled their ${leave.leaveType} leave (${describeLeavePeriod(leave)})`,
+      `/leaves/${leave.id}`,
+    );
+    return updated;
+  }
+
+  /** "3 of 12 days used this year" for a type with an allowance, else null - shown to
+   *  approvers on the Teams approval card. */
+  async describeLeaveBalance(employeeId: string, leaveType: string) {
+    const balance = await this.getLeaveBalance(employeeId);
+    const type = balance.types.find((t) => t.leaveType === leaveType);
+    if (!type || type.annualDays === null) return null;
+    const pending = type.pendingDays ? `, ${type.pendingDays} pending` : '';
+    return `${type.usedDays} of ${type.annualDays} days used in ${balance.year}${pending}`;
+  }
+
+  async getLeavePolicies() {
+    return this.prisma.leavePolicy.findMany({ orderBy: { leaveType: 'asc' } });
+  }
+
+  async setLeavePolicy(leaveType: string, annualDays: number) {
+    const type = leaveType.trim();
+    if (!type) throw new BadRequestException('Leave type is required');
+    return this.prisma.leavePolicy.upsert({
+      where: { leaveType: type },
+      create: { leaveType: type, annualDays },
+      update: { annualDays },
+    });
+  }
+
+  async deleteLeavePolicy(leaveType: string) {
+    await this.prisma.leavePolicy.deleteMany({ where: { leaveType } });
+  }
+
+  /**
+   * Leave taken this calendar year per type. Full-day leave counts working days only
+   * (Settings.workingDays) - hourly leave is totalled in minutes separately and never
+   * eats into the day allowance. Pending requests are shown apart from approved ones.
+   */
+  async getLeaveBalance(
+    employeeId: string,
+    year = new Date().getUTCFullYear(),
+  ) {
+    const yearStart = new Date(Date.UTC(year, 0, 1));
+    const yearEnd = new Date(Date.UTC(year, 11, 31));
+    const [leaves, policies, settings] = await Promise.all([
+      this.prisma.leave.findMany({
+        where: {
+          employeeId,
+          status: { in: [LeaveStatus.PENDING, LeaveStatus.APPROVED] },
+          startDate: { lte: yearEnd },
+          endDate: { gte: yearStart },
+        },
+      }),
+      this.getLeavePolicies(),
+      this.getSettings(),
+    ]);
+
+    const workingDays = new Set(
+      settings.workingDays?.length ? settings.workingDays : [1, 2, 3, 4, 5],
+    );
+    const byType = new Map<
+      string,
+      {
+        leaveType: string;
+        annualDays: number | null;
+        usedDays: number;
+        pendingDays: number;
+        usedMinutes: number;
+        pendingMinutes: number;
+      }
+    >();
+    const entry = (leaveType: string) => {
+      let e = byType.get(leaveType);
+      if (!e) {
+        e = {
+          leaveType,
+          annualDays: null,
+          usedDays: 0,
+          pendingDays: 0,
+          usedMinutes: 0,
+          pendingMinutes: 0,
+        };
+        byType.set(leaveType, e);
+      }
+      return e;
+    };
+    policies.forEach((p) => (entry(p.leaveType).annualDays = p.annualDays));
+
+    for (const leave of leaves) {
+      const e = entry(leave.leaveType);
+      const approved = leave.status === LeaveStatus.APPROVED;
+      if (leave.durationMinutes != null) {
+        if (approved) e.usedMinutes += leave.durationMinutes;
+        else e.pendingMinutes += leave.durationMinutes;
+        continue;
+      }
+      const from = Math.max(leave.startDate.getTime(), yearStart.getTime());
+      const to = Math.min(leave.endDate.getTime(), yearEnd.getTime());
+      let days = 0;
+      for (let t = from; t <= to; t += 24 * 3600 * 1000) {
+        const weekday = new Date(t).getUTCDay() || 7;
+        if (workingDays.has(weekday)) days++;
+      }
+      if (approved) e.usedDays += days;
+      else e.pendingDays += days;
+    }
+
+    return {
+      year,
+      types: Array.from(byType.values())
+        .map((e) => ({
+          ...e,
+          remainingDays:
+            e.annualDays === null ? null : e.annualDays - e.usedDays,
+        }))
+        .sort((a, b) => a.leaveType.localeCompare(b.leaveType)),
+    };
+  }
+
   async getAttendances(
     visibleIds: string[] | 'ALL' = 'ALL',
     page = DEFAULT_PAGE,
@@ -571,7 +824,11 @@ export class AdminService {
     const [data, total] = await Promise.all([
       this.prisma.attendance.findMany({
         where,
-        include: { employee: true, dailyTasks: true, breaks: true },
+        include: {
+          employee: true,
+          dailyTasks: { orderBy: TASK_ORDER },
+          breaks: true,
+        },
         orderBy: { date: 'desc' },
         skip: (page - 1) * pageSize,
         take: pageSize,
@@ -580,4 +837,104 @@ export class AdminService {
     ]);
     return { data, total, page, pageSize };
   }
+
+  /**
+   * Timesheet CSV: one row per attendance session between two calendar days (company
+   * timezone, inclusive), limited to the employees the requester can see.
+   */
+  async exportAttendancesCsv(
+    visibleIds: string[] | 'ALL',
+    from: string,
+    to: string,
+    employeeId?: string,
+  ) {
+    if (
+      employeeId &&
+      visibleIds !== 'ALL' &&
+      !visibleIds.includes(employeeId)
+    ) {
+      throw new ForbiddenException(
+        "You cannot export this employee's attendance",
+      );
+    }
+    // Noon UTC lands on the intended calendar day in any office timezone.
+    const rangeStart = startOfDay(new Date(`${from.slice(0, 10)}T12:00:00Z`));
+    const rangeEnd = nextMidnight(new Date(`${to.slice(0, 10)}T12:00:00Z`));
+    if (isNaN(rangeStart.getTime()) || isNaN(rangeEnd.getTime())) {
+      throw new BadRequestException('Please choose valid dates');
+    }
+    if (rangeEnd <= rangeStart) {
+      throw new BadRequestException('"To" must be on or after "From"');
+    }
+    if (rangeEnd.getTime() - rangeStart.getTime() > 400 * 24 * 3600 * 1000) {
+      throw new BadRequestException('Export at most about a year at a time');
+    }
+
+    const rows = await this.prisma.attendance.findMany({
+      where: {
+        checkIn: { gte: rangeStart, lt: rangeEnd },
+        ...(employeeId
+          ? { employeeId }
+          : visibleIds === 'ALL'
+            ? {}
+            : { employeeId: { in: visibleIds } }),
+      },
+      include: {
+        employee: { select: { name: true, email: true } },
+        breaks: { select: { type: true, duration: true } },
+        dailyTasks: { select: { status: true } },
+      },
+      orderBy: [{ checkIn: 'asc' }],
+    });
+
+    const clock = (d: Date | null) => (d ? formatClock(d) : '');
+    const hours = (minutes: number) => (minutes / 60).toFixed(2);
+
+    const header = [
+      'Date',
+      'Employee',
+      'Email',
+      'Check in',
+      'Check out',
+      'Auto check-out',
+      'Worked (hrs)',
+      'Breaks (hrs)',
+      'Lunch (hrs)',
+      'Permission (hrs)',
+      'Tasks planned',
+      'Tasks completed',
+    ];
+    const lines = [header.map(csvCell).join(',')];
+    for (const a of rows) {
+      const lunch = a.breaks
+        .filter((b) => b.type === 'lunch')
+        .reduce((sum, b) => sum + b.duration, 0);
+      lines.push(
+        [
+          dateKey(a.checkIn),
+          a.employee.name,
+          a.employee.email,
+          clock(a.checkIn),
+          a.status === 'checked_out' ? clock(a.checkOut) : 'still open',
+          a.autoCheckedOut ? 'Yes' : 'No',
+          hours(a.workingMinutes),
+          hours(a.breakMinutes - lunch),
+          hours(lunch),
+          hours(a.permissionMinutes),
+          String(a.dailyTasks.length),
+          String(a.dailyTasks.filter((t) => t.status === 'completed').length),
+        ]
+          .map(csvCell)
+          .join(','),
+      );
+    }
+    // BOM so Excel opens it as UTF-8 (names with non-ASCII characters).
+    return '\uFEFF' + lines.join('\r\n') + '\r\n';
+  }
+}
+
+/** Quotes a CSV cell, and defuses spreadsheet formulas in user-entered text. */
+function csvCell(value: string): string {
+  const safe = /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
+  return `"${safe.replace(/"/g, '""')}"`;
 }

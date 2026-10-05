@@ -1,5 +1,9 @@
 {
   "actions": {
+    "correctCheckOut": {
+      "handler": "CorrectCheckOutHandler",
+      "description": "Fixes the check-out time of an automatically closed session."
+    },
     "checkIn": {
       "handler": "CheckInHandler",
       "description": "Handles user check-in and task planning."

@@ -115,6 +115,43 @@ export class GroupsService {
     return defaults.map((g) => g.conversationId);
   }
 
+  /**
+   * Each active group with the people whose announcements go there - the same rule as
+   * getTargetsForEmployee, seen from the group's side: its assigned employees, plus
+   * everyone with no groups at all when it's a default group. Only active employees
+   * linked to Teams are included. Used by the daily digests.
+   */
+  async getActiveGroupsWithMembers() {
+    const memberWhere = { isActive: true, teamsUserId: { not: null } };
+    const memberSelect = { id: true, name: true };
+    const groups = await this.prisma.teamsGroup.findMany({
+      where: { isActive: true },
+      include: { employees: { where: memberWhere, select: memberSelect } },
+      orderBy: { name: 'asc' },
+    });
+    const unassigned = groups.some((g) => g.isDefault)
+      ? await this.prisma.employee.findMany({
+          where: { ...memberWhere, groups: { none: {} } },
+          select: memberSelect,
+        })
+      : [];
+
+    return groups.map((g) => {
+      const members = new Map<string, { id: string; name: string }>();
+      for (const e of [...g.employees, ...(g.isDefault ? unassigned : [])]) {
+        members.set(e.id, e);
+      }
+      return {
+        id: g.id,
+        name: g.name,
+        conversationId: g.conversationId,
+        members: Array.from(members.values()).sort((a, b) =>
+          a.name.localeCompare(b.name),
+        ),
+      };
+    });
+  }
+
   private mapPrismaError(e: unknown) {
     if (e instanceof Prisma.PrismaClientKnownRequestError) {
       if (e.code === 'P2002') {

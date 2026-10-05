@@ -10,7 +10,8 @@ export type LeaveStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
 export type NotificationType =
   | 'LEAVE_APPLIED'
   | 'LEAVE_APPROVED'
-  | 'LEAVE_REJECTED';
+  | 'LEAVE_REJECTED'
+  | 'LEAVE_CANCELLED';
 
 export interface Shift {
   id: string;
@@ -96,6 +97,35 @@ export interface Attendance {
   autoCheckedOut?: boolean;
   breaks?: AttendanceBreak[];
   dailyTasks?: DailyTask[];
+}
+
+export interface ScheduleSettings {
+  remindersEnabled: boolean;
+  checkInReminderTime: string;
+  checkOutReminderTime: string;
+  digestsEnabled: boolean;
+  morningDigestTime: string;
+  eveningDigestTime: string;
+  /** ISO weekdays, 1 = Monday ... 7 = Sunday. */
+  workingDays: number[];
+}
+
+export interface LeavePolicy {
+  leaveType: string;
+  annualDays: number;
+}
+
+export interface LeaveBalance {
+  year: number;
+  types: {
+    leaveType: string;
+    annualDays: number | null;
+    usedDays: number;
+    pendingDays: number;
+    remainingDays: number | null;
+    usedMinutes: number;
+    pendingMinutes: number;
+  }[];
 }
 
 export interface AppNotification {

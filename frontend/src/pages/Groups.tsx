@@ -6,6 +6,7 @@ import { Modal } from '../components/ui/Modal';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { DataList, type DataListColumn } from '../components/ui/DataList';
+import { ScheduleSettingsPanel } from '../components/ScheduleSettingsPanel';
 
 interface FormState {
   id?: string;
@@ -245,6 +246,8 @@ export default function Groups() {
         rowKey={(g) => g.id}
         emptyMessage="No groups yet. Add the bot to a Teams chat, then add the group here."
       />
+
+      <ScheduleSettingsPanel />
 
       <Modal
         open={isModalOpen}

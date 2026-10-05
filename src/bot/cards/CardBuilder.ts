@@ -1,11 +1,17 @@
 import { CardFactory } from 'botbuilder';
 
 export class CardBuilder {
-  static getCheckInCard(employeeName: string, quote?: string) {
+  /** `headline` replaces the greeting - the morning reminder uses it. */
+  static getCheckInCard(
+    employeeName: string,
+    quote?: string,
+    headline?: string,
+  ) {
     const body: any[] = [
       {
         type: 'TextBlock',
-        text: `Ready to slay the day, ${employeeName}? ✨`,
+        text: headline || `Ready to slay the day, ${employeeName}? ✨`,
+        wrap: true,
         weight: 'Bolder',
         size: 'Medium',
       },
@@ -211,7 +217,12 @@ export class CardBuilder {
     });
   }
 
-  static getWorkingCard(attendanceId: string, employeeName: string) {
+  /** `headline` replaces the greeting - the evening check-out reminder uses it. */
+  static getWorkingCard(
+    attendanceId: string,
+    employeeName: string,
+    headline?: string,
+  ) {
     return CardFactory.adaptiveCard({
       $schema: 'http://adaptivecards.io/schemas/adaptive-card.json',
       type: 'AdaptiveCard',
@@ -219,7 +230,8 @@ export class CardBuilder {
       body: [
         {
           type: 'TextBlock',
-          text: `You're crushing it, ${employeeName}! 🔥`,
+          text: headline || `You're crushing it, ${employeeName}! 🔥`,
+          wrap: true,
           weight: 'Bolder',
           size: 'Medium',
           color: 'Good',
@@ -307,6 +319,60 @@ export class CardBuilder {
     });
   }
 
+  /**
+   * Sent the morning after a forgotten check-out was closed automatically, so the
+   * employee can put in when they actually finished.
+   */
+  static getAutoCheckOutNoticeCard(
+    attendanceId: string,
+    day: string,
+    recordedAt: string,
+    worked: string,
+    validationError?: string,
+  ) {
+    const body: any[] = [
+      {
+        type: 'TextBlock',
+        text: `⏰ You didn't check out on ${day}`,
+        weight: 'Bolder',
+        size: 'Medium',
+        wrap: true,
+      },
+      {
+        type: 'TextBlock',
+        text: `I checked you out automatically at ${recordedAt}, which counts ${worked} of work. If you finished at a different time, enter it below.`,
+        wrap: true,
+      },
+    ];
+    if (validationError) {
+      body.push({
+        type: 'TextBlock',
+        text: `Error: ${validationError}`,
+        color: 'Attention',
+        weight: 'Bolder',
+        wrap: true,
+      });
+    }
+    body.push(
+      { type: 'TextBlock', text: 'Actual check-out time', weight: 'Bolder' },
+      { type: 'Input.Time', id: 'checkOutTime', value: '' },
+    );
+    return CardFactory.adaptiveCard({
+      $schema: 'http://adaptivecards.io/schemas/adaptive-card.json',
+      type: 'AdaptiveCard',
+      version: '1.3',
+      body,
+      actions: [
+        {
+          type: 'Action.Execute',
+          title: 'Update Check-out',
+          style: 'positive',
+          data: { action: 'correctCheckOut', attendanceId },
+        },
+      ],
+    });
+  }
+
   static getReadOnlyReceiptCard(title: string, message: string) {
     return CardFactory.adaptiveCard({
       $schema: 'http://adaptivecards.io/schemas/adaptive-card.json',
@@ -324,6 +390,7 @@ export class CardBuilder {
           type: 'TextBlock',
           text: message,
           isSubtle: true,
+          wrap: true,
         },
       ],
     });
@@ -335,6 +402,7 @@ export class CardBuilder {
     leaveType: string,
     period: string,
     reason: string,
+    balance?: string | null,
   ) {
     return CardFactory.adaptiveCard({
       $schema: 'http://adaptivecards.io/schemas/adaptive-card.json',
@@ -355,6 +423,7 @@ export class CardBuilder {
             { title: 'Type:', value: leaveType },
             { title: 'When:', value: period },
             { title: 'Reason:', value: reason },
+            ...(balance ? [{ title: 'Balance:', value: balance }] : []),
           ],
         },
       ],

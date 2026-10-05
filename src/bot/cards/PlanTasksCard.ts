@@ -1,6 +1,9 @@
 import { CardFactory } from 'botbuilder';
 import { formatDuration } from '../../common/time';
 
+/** Task rows the plan card offers (hidden until "+ Add Another Task" is clicked). */
+export const MAX_PLAN_TASKS = 10;
+
 const PERMISSION_CHOICES = [
   { title: 'None (0 hrs)', value: '0' },
   { title: '1 Hour', value: '60' },
@@ -28,6 +31,7 @@ export class PlanTasksCard {
     attendanceId: string,
     validationError?: string,
     previousValues?: any,
+    notice?: string,
   ) {
     const body: any[] = [
       {
@@ -37,6 +41,15 @@ export class PlanTasksCard {
         size: 'Medium',
       },
     ];
+
+    if (notice) {
+      body.push({
+        type: 'TextBlock',
+        text: notice,
+        isSubtle: true,
+        wrap: true,
+      });
+    }
 
     if (validationError) {
       body.push({
@@ -97,7 +110,7 @@ export class PlanTasksCard {
 
     let visibleRowsCount = 1;
     if (previousValues) {
-      for (let i = 5; i >= 1; i--) {
+      for (let i = MAX_PLAN_TASKS; i >= 1; i--) {
         if (previousValues[`taskName_${i}`]) {
           visibleRowsCount = i;
           break;
@@ -105,7 +118,7 @@ export class PlanTasksCard {
       }
     }
 
-    for (let i = 1; i <= 5; i++) {
+    for (let i = 1; i <= MAX_PLAN_TASKS; i++) {
       const isVisible = i <= visibleRowsCount;
 
       const tNameVal = previousValues
@@ -199,7 +212,7 @@ export class PlanTasksCard {
       columns: [taskColumn, priorityColumn, timeColumn, actionColumn],
     });
 
-    for (let i = 1; i < 5; i++) {
+    for (let i = 1; i < MAX_PLAN_TASKS; i++) {
       body.push({
         type: 'Container',
         id: `addBtnContainer_${i}`,

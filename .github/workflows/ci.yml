@@ -9,6 +9,10 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    env:
+      # prisma.config.ts requires DATABASE_URL even for `prisma generate`, which never
+      # connects. A placeholder is enough - no CI step talks to a real database.
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
     steps:
       - name: Checkout
         uses: actions/checkout@v4
